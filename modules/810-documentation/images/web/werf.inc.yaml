@@ -21,14 +21,87 @@ import:
   - '*/sitemap*.xml'
   - '*/robots.txt'
 ---
+artifact: {{ .ModuleName }}/{{ .ImageName }}/k8s-static
+from: gcr.io/k8s-staging-sig-docs/k8s-website-hugo:v0.110.0-a1533959ab60
+ansible:
+  install:
+    - shell: npm ci
+      args:
+        chdir: /src
+  setup:
+    - shell: |
+        rsync --ignore-existing /src/content/en/ /src/content/ru/ -a
+        # Apply patches
+        rsync /src-patch/ /src/ -a
+        # Generate Kubernetes documentation
+        hugo #--panicOnWarning
+        # Other patches...
+        find /src/public/ -type f -exec sed -Ei "s#(href=['\"])../#\1#g; s#(href=['\"].*)../(ru|en)/#\1../#g;" {} +
+        rsync --ignore-existing /src/public/docs/ /src/public/en/docs/ -a
+        rsync --ignore-existing /src/public/docs/ /src/public/ru/docs/ -a
+        rsync --ignore-existing /src/public/images/ /src/public/ru/images/ -a
+        rsync --ignore-existing /src/public/images/ /src/public/en/images/ -a
+      args:
+        chdir: /src
+git:
+- url: https://github.com/kubernetes/website.git
+  tag: snapshot-final-v1.26
+  add: /
+  to: /src
+  owner: 1313
+  group: 1313
+  includePaths:
+    - assets
+    - content/en/docs/concepts
+    - content/en/docs/images
+    - content/en/docs/reference
+    - content/en/docs/tasks
+    - content/en/docs/tutorials
+    - content/en/examples
+    - content/en/includes
+    - content/ru/docs/concepts
+    - content/ru/docs/reference
+    - content/ru/docs/tasks
+    - content/ru/docs/tutorials
+    - content/ru/examples
+    - content/ru/includes
+    - data/canonical-tags
+    - data/i18n/ru
+    - data/i18n/en
+    - i18n/en.toml
+    - i18n/ru.toml
+    - static
+    - themes
+    - package.json
+    - package-lock.json
+  excludePaths:
+    - content/en/docs/reference/issues-security
+    - content/en/docs/reference/generated
+  stageDependencies:
+    install:
+      - package.json
+      - package-lock.json
+    setup: '**/*'
+- add: /modules/810-{{ $.ModuleName }}/images/{{ $.ImageName }}/k8s-hugo
+  to: /src-patch
+  owner: 1313
+  group: 1313
+  includePaths:
+    - layouts
+    - hugo.toml
+  stageDependencies:
+    setup: '**/*'
+---
 artifact: {{ .ModuleName }}/{{ .ImageName }}/static
 from: {{ .Images.BASE_JEKYLL }}
 ansible:
   install:
     - shell: |
-        apk add rsync jq
-        gem update --system 3.2.3
-        gem install bundler -v 2.4.3
+        apk add rsync jq tree
+        export YQ_VERSION=v4.33.3 YQ_BINARY=yq_linux_amd64
+        wget https://github.com/mikefarah/yq/releases/download/${YQ_VERSION}/${YQ_BINARY} -O /usr/bin/yq && chmod +x /usr/bin/yq
+        gem install bundler -v 2.4.3 --silent -q
+        gem update --system 3.2.3 --no-document --minimal-deps --silent -q 2>/dev/null
     - name: "Install Dependencies"
       shell: bundle install
       args:
@@ -117,6 +190,30 @@ ansible:
       args:
         executable: /bin/bash
         chdir: /srv/jekyll-data/documentation/
+    - name: "Generating sidebars for the Kubernetes documentation..."
+      shell: |
+        #tree --prune --noreport -Jdf -I 'images' ./ |
+        #  jq ' first.contents | walk(if type == "object" and has("contents") and (.contents |length == 0) then del(.contents) else . end) |  ( .. | select(type=="object")) |= with_entries(if .key == "name" then .key = "url" elif .key == "type" then .key = "title" else . end) |  walk(if type == "object" and has("contents") then ( .folders=.contents | del(.contents) ) else . end) | walk(if type == "object" and has("title") then ( .title = (.url | split("/") | last ) ) else . end) ' |
+        #  yq -P | sed -E 's/^/        /; s#url: ./#url: /k8s/docs/#; /\ +url:/s#/?$#/#' >> /srv/jekyll-data/documentation/_data/sidebars/main.yml
+        cd /srv/jekyll-data/documentation/en/k8s/docs
+        /srv/jekyll-data/documentation/generate_k8s_sidebar.sh "/k8s/docs/" 2 | sed -i '3r /dev/stdin' /srv/jekyll-data/documentation/_data/sidebars/k8s-docs.yml
+        cd /srv/jekyll-data/documentation/ru/k8s/docs
+        /srv/jekyll-data/documentation/generate_k8s_sidebar.sh "/k8s/docs/" 2 >> /srv/jekyll-data/documentation/_data/sidebars/k8s-docs.yml
+      args:
+        executable: /bin/bash
+        chdir: /srv/jekyll-data/documentation/
+    - name: "Fix title for the Kubernetes documentation..."
+      shell: |
+        for i in $(find ./{ru,en}/k8s/ -regex '.*.html' -type f -print); do
+          grep -q "^---" $i || continue
+          head -n $(grep -n -E "^---" $i | head -2 | tail -1 | cut -d: -f 1) $i |
+             grep -q -E "^title:.*\:.*" || continue
+          _TITLELINE=$(grep -n -E "^title:" $i | head -n 1 | cut -d: -f 1)
+          sed -i -E "${_TITLELINE} s#^title: (.+)\$#title: '\1'#g" $i
+        done
+      args:
+        executable: /bin/bash
+        chdir: /srv/jekyll-data/documentation/
     - name: "Extracting the default Kubernetes version..."
       shell: |
         echo "default: \"$(grep "DefaultKubernetesVersion" -m 1 _data/dhctl-base.go | grep -Eo '[0-9.]+')\"" > _data/version_kubernetes.yml
@@ -157,26 +254,61 @@ ansible:
     - name: "Generating static files of the documentation part..."
       shell: |
         mkdir -m 777 -p /app/_site/
-        JEKYLL_ENV=production jekyll build -d /app/_site/documentation/ --config _config.yml,/tmp/_config_additional.yml
+        # TODO: REMOVE
+        # JEKYLL_ENV=development jekyll build -d /app/_site/documentation/ --config _config.yml,/tmp/_config_additional.yml --profile
+        JEKYLL_ENV=production jekyll build -d /app/_site/documentation/ --config _config.yml,/tmp/_config_additional.yml --profile
       args:
         executable: /bin/bash
         chdir: /srv/jekyll-data/documentation/
         warn: false
     - name: "Generating static file's of the main part..."
       shell: |
-        JEKYLL_ENV=production jekyll build -d /app/_site/site/ --config _config.yml,/tmp/_config_additional.yml
+        # TODO: REMOVE
+        JEKYLL_ENV=development jekyll build -d /app/_site/site/ --config _config.yml,/tmp/_config_additional.yml --profile
+        # JEKYLL_ENV=production jekyll build -d /app/_site/site/ --config _config.yml,/tmp/_config_additional.yml --profile
       args:
         executable: /bin/bash
         chdir: /srv/jekyll-data/site/
     - shell: |
         cp -Rf /app/_site/site/assets /app/_site/documentation/
         cp -Rf /app/_site/site/images /app/_site/documentation/
-        cp -Rf /app/_site/site/includes /app/_site/documentation/
         cp -Rf /app/_site/site/ru/includes /app/_site/documentation/ru
         cp -Rf /app/_site/site/en/includes /app/_site/documentation/en
         cp -Rf /app/_site/site/ru /app/_site/documentation/
         cp -Rf /app/_site/site/en /app/_site/documentation/
         rm -rf /app/_site/documentation/compare/
+import:
+- artifact: {{ .ModuleName }}/{{ .ImageName }}/k8s-static
+  add: /src/public/en
+  to: /srv/jekyll-data/documentation/en/k8s
+  before: setup
+#  includePaths:
+#  - docs/concepts/
+#  - docs/tutorials/
+#  - docs/tasks/
+#  - docs
+#  - ru
+#  - en
+#  - examples
+  excludePaths:
+  - docs/index.html
+#  - images
+- artifact: {{ .ModuleName }}/{{ .ImageName }}/k8s-static
+  add: /src/public/ru
+  to: /srv/jekyll-data/documentation/ru/k8s
+  before: setup
+#  includePaths:
+#  - docs/concepts/
+#  - docs/tutorials/
+#  - docs/tasks/
+#  - docs/concepts/
+#  - docs
+#  - ru
+#  - en
+#  - examples
+  excludePaths:
+  - docs/index.html
+#  - images
 git:
 - add: /docs
   to: /srv/jekyll-data
@@ -197,6 +329,12 @@ git:
     - site/_includes/footer.html
   stageDependencies:
     install: ['site/Gemfile','site/Gemfile.lock']
+    setup: '**/*'
+- add: /modules/810-{{ $.ModuleName }}/images/{{ $.ImageName }}/k8s-jekyll
+  to: /srv/jekyll-data/documentation/pages/k8s
+  owner: jekyll
+  group: jekyll
+  stageDependencies:
     setup: '**/*'
 - add: /
   to: /comparison
