@@ -22,14 +22,27 @@ properties:
     enum: ["Alpha", "Beta", "EarlyAccess", "Stable", "RockSolid"]
     x-examples: ["Stable"]
     description: |
-      Desirable Deckhouse release channel (Deckhouse will [switch](https://deckhouse.io/documentation/v1/deckhouse-faq.html#what-happens-when-the-update-channel-changes) to it when such an opportunity appears).
+      Deckhouse release channel.
 
-      The order in which the stability of the release channel increases (from **less** stable to **more** stable): `Alpha`, `Beta`, `EarlyAccess`, `Stable`, `RockSolid`.
+      If you change the release channel, Deckhouse switching to the version in the selected release channel may take place when it makes sense, rather than right away. For example, Deckhouse will not automatically upgrade to a lower minor version. Read more about [what happens when you change the release channel...](../../deckhouse-faq.html#what-happens-when-the-update-channel-changes)
+
+      If the `releaseChannel` parameter is not set, Deckhouse upgrades are completely disabled (even patch version upgrades).
+      
+      > **Note!** If the `releaseChannel` parameter was not set, setting it will result in Deckhouse switching to the version in the selected release channel (in doing so, it will take into account the upgrade mode and upgrade windows). In this case, Deckhouse may skip over several minor versions all at once (e.g., jumping from `1.42` right to `1.48`), or switch to a version lower than the current one. Rolling back to a lower minor version or upgrading minor versions in a nonsequential fashion is not supported, and may lead to unintended consequences.
+   
+      The stability of the release channel (from the **least** stable to the **most** stable one) increases in the following order: `Alpha`, `Beta`, `EarlyAccess`, `Stable`, `RockSolid`.
   update:
     type: object
-    description: Settings of the Deckhouse update mode and windows.
-    x-examples:
-      - windows:
+    description: |
+      Managing Deckhouse upgrade settings.
+
+      Deckhouse will only update if the release channel is set in the [releaseChannel](#parameters-releasechannel) parameter.
+    x-doc-example: |
+      ```yaml
+      releaseChannel: EarlyAccess
+      update:
+        mode: Auto
+        windows:
           - from: "8:00"
             to: "15:00"
             days:
@@ -43,6 +56,7 @@ properties:
             basic:
               username: user
               password: password
+      ```
     properties:
       mode:
         type: string
@@ -51,10 +65,10 @@ properties:
           Deckhouse minor version update mode (release change). **Does not affect patch version updates.**
           - `Auto` — all updates are applied automatically.
 
-            Deckhouse minor version updates (release updates, for example, from `v1.26.*` to `v1.27.*`), are applied according to the update windows or (if no update windows are set) as they appear on the corresponding release channel;
-          - `Manual` — to change a minor version of Deckhouse (for example, from `v1.26.*` to `v1.27.*`), manual confirmation is required.
+            Deckhouse minor version updates (for example, from `1.26.*` to `1.27.*`), are applied according to the [update windows]((#parameters-update-windows). If the update windows are not set, the update is applied immediately after it appears on the corresponding update channel (a slight random delay is possible);
+          - `Manual` — to change a minor version of Deckhouse (for example, from `1.26.*` to `1.27.*`), manual confirmation is required.
 
-            To confirm the update, edit [custom resource 'DeckhouseRelease'](https://deckhouse.io/documentation/v1/modules/002-deckhouse/cr.html), which corresponds to the version by setting the `approved' field to 'true'.
+            The `approved` field must be set to `true` in the corresponding custom resource [`DeckhouseRelease`](cr.html#deckhouserelease) to confirm the update.
         enum:
           - 'Auto'
           - 'Manual'
@@ -65,13 +79,27 @@ properties:
           - 'Auto'
           - 'Manual'
         description: |
-          Deckhouse release update disruption mode:
-          - `Auto` — approves release with disruptions (potentially dangerous changes) automatically.
-          - `Manual` — requires manual release confirmation (set annotation `release.deckhouse.io/disruption-approved=true`).
+          Manage the way disruptive updates are applied. Note that the disruptive update may result in an important cluster component, user application, or related systems being temporarily shut down, default values being overwritten, or the behavior of some modules being altered:
+          - `Auto` — disruptive updates are applied automatically.
+          - `Manual` — disruptive updates must be manually confirmed (to do so, you must add the `release.deckhouse.io/disruption-approved=true` annotation to the corresponding `DeckhouseRelease` resource).
+
+          The `disruptionApprovalMode` parameter only affects the way disruptive updates are applied and has no efeect on regular updates (see the [update.mode](#parameters-update-mode) parameter).
+
+          > Disruption update windows for nodes can be customized using the [`disruptions.automatic.windows`](../040-node-manager/cr.html#nodegroup-v1-spec-disruptions-automatic-windows) parameter of the `NodeGroup` resource.
       windows:
         type: array
         description: |
           List of update windows during the day.
+
+          Update windows are taken into account **only** when the **automatic** update mode is set (see the [update.mode](#parameters-update-mode) parameter).
+        x-examples:
+          - - from: "6:00"
+              to: "7:00"
+            - from: "20:00"
+              to: "21:00"
+              days:
+                - Sat
+                - Sun
         items:
           type: object
           required:
@@ -81,7 +109,6 @@ properties:
             from:
               type: string
               pattern: '^(?:\d|[01]\d|2[0-3]):[0-5]\d$'
-              example: '13:00'
               description: |
                 Start time of the update window (UTC timezone).
 
@@ -89,7 +116,6 @@ properties:
             to:
               type: string
               pattern: '^(?:\d|[01]\d|2[0-3]):[0-5]\d$'
-              example: '18:30'
               description: |
                 End time of the update window (UTC timezone).
 
@@ -97,11 +123,9 @@ properties:
             days:
               type: array
               description: The days of the week on which the update window is applied.
-              example: ["Mon", "Wed"]
               items:
                 type: string
                 description: Day of the week.
-                x-examples: [Mon]
                 enum:
                   - Mon
                   - Tue
