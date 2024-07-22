@@ -169,7 +169,7 @@ rules:
   - create
 - apiGroups: ["apps"]
   resources: ["deployments/http"]
-  resourceNames: ["trickster"]
+  resourceNames: ["aggregating-proxy"]
   verbs: ["get", "create", "update", "patch", "delete"]
 - apiGroups:
     - monitoring.coreos.com
