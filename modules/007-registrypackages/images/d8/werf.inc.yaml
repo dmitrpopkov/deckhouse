@@ -1,6 +1,11 @@
+# Delete the next line after merge dev_branch in upstream
+{{- $dev_branch := "feature/add-cilium" }}
+{{- $dev_commit := "428de13f166cdd8279d40ffcc8aea66a9c12d6bb" }}
+{{- $_ := set . "SOURCE_REPO" "https://github.com" }}
 ---
 image: {{ $.ModuleName }}/{{ $.ImageName }}
 from: {{ $.Images.BASE_SCRATCH }}
+fromCacheVersion: 13
 import:
 - artifact: {{ $.ModuleName }}/{{ $.ImageName }}-artifact
   add: /
@@ -18,6 +23,7 @@ docker:
 ---
 artifact: {{ $.ModuleName }}/{{ $.ImageName }}-artifact
 from: {{ $.Images.BASE_GOLANG_22_BULLSEYE_DEV }}
+fromCacheVersion: 13
 git:
   - add: /{{ $.ModulePath }}modules/007-{{ $.ModuleName }}/images/{{ $.ImageName }}/scripts
     to: /
@@ -27,8 +33,16 @@ git:
 shell:
   setup:
   - export GOPROXY={{ $.GOPROXY }}
-  - git clone --depth 1 --branch {{ .CandiVersionMap.d8.d8CliVersion }} {{ $.SOURCE_REPO }}/deckhouse/deckhouse-cli.git
+  # Replace the next line after merge dev_branch in upstream
+  #- git clone --depth 1 --branch {{ .CandiVersionMap.d8.d8CliVersion }} {{ $.SOURCE_REPO }}/deckhouse/deckhouse-cli.git
+  #- git clone --depth 1 --branch {{ $dev_branch }} {{ $.SOURCE_REPO }}/deckhouse/deckhouse-cli.git
+  - git clone --branch {{ $dev_branch }} {{ $.SOURCE_REPO }}/deckhouse/deckhouse-cli.git
   - cd /deckhouse-cli
-  - task build:dist:linux:amd64
+  # Delete the next line after merge dev_branch in upstream
+  - git checkout {{ $dev_commit }}
+  - git tag --force {{ .CandiVersionMap.d8.d8CliVersion }}
+  # Replace the next line after merge dev_branch in upstream
+  #- task build:dist:linux:amd64
+  - task build-d8-w-cilium
   - mv ./dist/{{ .CandiVersionMap.d8.d8CliVersion }}/linux-amd64/d8 /d8
   - chmod +x /d8 /install /uninstall
