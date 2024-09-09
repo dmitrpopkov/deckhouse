@@ -279,10 +279,6 @@ var DefaultImagesDigests = map[string]interface{}{
 		"kubeProxy129":  "imageHash-kubeProxy-kubeProxy129",
 		"kubeProxy130":  "imageHash-kubeProxy-kubeProxy130",
 	},
-	"l2LoadBalancer": map[string]interface{}{
-		"controller": "imageHash-l2LoadBalancer-controller",
-		"speaker":    "imageHash-l2LoadBalancer-speaker",
-	},
 	"localPathProvisioner": map[string]interface{}{
 		"helper":               "imageHash-localPathProvisioner-helper",
 		"localPathProvisioner": "imageHash-localPathProvisioner-localPathProvisioner",
@@ -294,8 +290,10 @@ var DefaultImagesDigests = map[string]interface{}{
 		"loki": "imageHash-loki-loki",
 	},
 	"metallb": map[string]interface{}{
-		"controller": "imageHash-metallb-controller",
-		"speaker":    "imageHash-metallb-speaker",
+		"controller":     "imageHash-metallb-controller",
+		"l2lbController": "imageHash-metallb-l2lbController",
+		"l2lbSpeaker":    "imageHash-metallb-l2lbSpeaker",
+		"speaker":        "imageHash-metallb-speaker",
 	},
 	"monitoringKubernetes": map[string]interface{}{
 		"ebpfExporter":                      "imageHash-monitoringKubernetes-ebpfExporter",

@@ -28,6 +28,7 @@ spec:
         memory: 60Mi
     {{- include "helm_lib_vpa_kube_rbac_proxy_resources" . | nindent 4 }}
 {{- end }}
+{{- if .Values.metallb.speaker }}
 ---
 apiVersion: apps/v1
 kind: DaemonSet
@@ -52,9 +53,9 @@ spec:
         {{- .Values.metallb.speaker.nodeSelector | toYaml | nindent 8 }}
       {{- include "helm_lib_tolerations" (tuple . "custom" "with-storage-problems") | nindent 6 }}
 
-{{- if .Values.metallb.speaker.tolerations }}
+  {{- if .Values.metallb.speaker.tolerations }}
         {{- .Values.metallb.speaker.tolerations | toYaml | nindent 6 }}
-{{- end }}
+  {{- end }}
       imagePullSecrets:
         - name: deckhouse-registry
       containers:
@@ -86,7 +87,7 @@ spec:
                 secretKeyRef:
                   key: secretkey
                   name: memberlist
-          image: {{ include "helm_lib_module_image" (list $ "speaker") }}
+          image: {{ include "helm_lib_module_image" (list . "speaker") }}
           imagePullPolicy: IfNotPresent
           name: speaker
           {{- include "helm_lib_module_container_security_context_read_only_root_filesystem_capabilities_drop_all_and_add" (list . (list "NET_RAW")) | nindent 10 }}
@@ -121,7 +122,7 @@ spec:
               {{- include "helm_lib_module_ephemeral_storage_only_logs" . | nindent 14 }}
 {{- if not ( .Values.global.enabledModules | has "vertical-pod-autoscaler") }}
               {{- include "speaker_resources" . | nindent 14 }}
-{{- end }}
+  {{- end }}
         - name: kube-rbac-proxy
           {{- include "helm_lib_module_container_security_context_read_only_root_filesystem_capabilities_drop_all" . | nindent 10 }}
           image: {{ include "helm_lib_module_common_image" (list $ "kubeRbacProxy") }}
@@ -156,8 +157,9 @@ spec:
               {{- include "helm_lib_module_ephemeral_storage_only_logs" . | nindent 14 }}
 {{- if not ( .Values.global.enabledModules | has "vertical-pod-autoscaler") }}
               {{- include "helm_lib_container_kube_rbac_proxy_resources" . | nindent 14 }}
-{{- end }}
+  {{- end }}
       hostNetwork: true
       dnsPolicy: ClusterFirstWithHostNet
       serviceAccountName: speaker
       terminationGracePeriodSeconds: 0
+{{- end }}
