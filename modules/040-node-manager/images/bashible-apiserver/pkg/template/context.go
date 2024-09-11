@@ -44,10 +44,11 @@ import (
 )
 
 const (
-	contextSecretName   = "bashible-apiserver-context"
-	registrySecretName  = "deckhouse-registry"
-	nodeUserCRDName     = "nodeusers"
-	moduleSourceCRDName = "modulesources"
+	contextSecretName           = "bashible-apiserver-context"
+	registrySecretName          = "deckhouse-registry"
+	secondaryRegistrySecretName = "deckhouse-change-registry"
+	nodeUserCRDName             = "nodeusers"
+	moduleSourceCRDName         = "modulesources"
 
 	imageDigestsFile = "/var/files/images_digests.json"
 	versionMapFile   = "/var/files/version_map.yml"
@@ -95,6 +96,9 @@ type BashibleContext struct {
 	moduleSourcesQueue                chan queueAction
 	moduleSourcesConfigurationChanged chan struct{}
 
+	secondaryRegistrySecretQueue   chan queueChangeRegistrySecretAction
+	secondaryRegistrySecretChanged chan struct{}
+
 	updateLocked bool
 }
 
@@ -102,6 +106,12 @@ type queueAction struct {
 	action    string
 	newObject *unstructured.Unstructured
 	oldObject *unstructured.Unstructured
+}
+
+type queueChangeRegistrySecretAction struct {
+	action    string
+	newObject *corev1.Secret
+	oldObject *corev1.Secret
 }
 
 type UserConfiguration struct {
@@ -121,6 +131,8 @@ func NewContext(ctx context.Context, stepsStorage *StepsStorage, kubeClient clie
 		nodeUsersConfigurationChanged:     make(chan struct{}, 1),
 		moduleSourcesQueue:                make(chan queueAction, 100),
 		moduleSourcesConfigurationChanged: make(chan struct{}, 1),
+		secondaryRegistrySecretQueue:      make(chan queueChangeRegistrySecretAction, 100),
+		secondaryRegistrySecretChanged:    make(chan struct{}, 1),
 	}
 
 	c.runFilesParser()
@@ -128,12 +140,14 @@ func NewContext(ctx context.Context, stepsStorage *StepsStorage, kubeClient clie
 	// Bashible context and its dynamic update
 	contextSecretFactory := newBashibleInformerFactory(kubeClient, resyncTimeout, "d8-cloud-instance-manager", "app=bashible-apiserver")
 	registrySecretFactory := newBashibleInformerFactory(kubeClient, resyncTimeout, "d8-system", "app=registry")
+	secondaryRegistrySecretFactory := newBashibleInformerFactory(kubeClient, resyncTimeout, "d8-system", "app=change-registry")
 	nodeUserCRDFactory := newNodeUserInformerFactory(kubeClient, resyncTimeout)
 	moduleSourcesFactory := newModuleSourcesInformerFactory(kubeClient, resyncTimeout, "app!=deckhouse,heritage!=deckhouse,module!=deckhouse")
 
 	contextSecretUpdates := c.subscribe(ctx, contextSecretFactory, contextSecretName)
 	registrySecretUpdates := c.subscribe(ctx, registrySecretFactory, registrySecretName)
 
+	c.subscribeOnChangeRegistrySecret(ctx, secondaryRegistrySecretFactory)
 	c.subscribeOnNodeUserCRD(ctx, nodeUserCRDFactory)
 	c.subscribeOnModuleSource(ctx, moduleSourcesFactory)
 
@@ -339,6 +353,9 @@ func (c *BashibleContext) onSecretsUpdate(ctx context.Context, contextSecretC, r
 
 		case <-c.OnModuleSourceChanged():
 			c.update("ModuleSourceConfiguration")
+
+		case <-c.OnSecondaryRegistryChanged():
+			c.update("ChangeRegistrySecret")
 
 		case <-ctx.Done():
 			return
@@ -568,6 +585,50 @@ func newModuleSourcesInformerFactory(kubeClient client.Client, resync time.Durat
 	return factory
 }
 
+func (c *BashibleContext) subscribeOnChangeRegistrySecret(ctx context.Context, changeRegistrySecretFactory informers.SharedInformerFactory) {
+	if changeRegistrySecretFactory == nil {
+		return
+	}
+
+	go c.emitter.runBufferedEmitter(c.secondaryRegistrySecretChanged)
+	go c.runChangeRegistrySecretQueue(ctx)
+
+	informer := changeRegistrySecretFactory.Core().V1().Secrets().Informer()
+	informer.SetWatchErrorHandler(cache.DefaultWatchErrorHandler)
+
+	informer.AddEventHandler(cache.FilteringResourceEventHandler{
+		FilterFunc: secretMapFilter("deckhouse-change-registry"),
+		Handler: cache.ResourceEventHandlerFuncs{
+			AddFunc: func(obj interface{}) {
+				c.secondaryRegistrySecretQueue <- queueChangeRegistrySecretAction{
+					action:    "add",
+					newObject: obj.(*corev1.Secret),
+				}
+			},
+			UpdateFunc: func(oldObj, newObj interface{}) {
+				c.secondaryRegistrySecretQueue <- queueChangeRegistrySecretAction{
+					action:    "update",
+					newObject: newObj.(*corev1.Secret),
+					oldObject: oldObj.(*corev1.Secret),
+				}
+			},
+			DeleteFunc: func(obj interface{}) {
+				c.secondaryRegistrySecretQueue <- queueChangeRegistrySecretAction{
+					action:    "delete",
+					oldObject: obj.(*corev1.Secret),
+				}
+			},
+		},
+	})
+
+	go informer.Run(ctx.Done())
+
+	// Wait for the first sync of the informer cache, should not take long
+	if !cache.WaitForCacheSync(ctx.Done(), informer.HasSynced) {
+		klog.Fatalf("unable to sync caches: %v", ctx.Err())
+	}
+}
+
 func (c *BashibleContext) subscribeOnNodeUserCRD(ctx context.Context, ngConfigFactory dynamicinformer.DynamicSharedInformerFactory) {
 	if ngConfigFactory == nil {
 		return
@@ -704,6 +765,23 @@ func (c *BashibleContext) RemoveModuleSourceCA(ms *ModuleSource) {
 
 }
 
+func (c *BashibleContext) AddChangeRegistrySecret(registryChangeData *registryChangeInputData) {
+	klog.Infof("Adding chageRegistrySecret %s to context", registryChangeData.Address)
+	c.rw.Lock()
+	defer c.rw.Unlock()
+
+	c.contextBuilder.SetSecondaryRegistryData(registryChangeData.toRegistry())
+}
+
+func (c *BashibleContext) RemoveChangeRegistrySecret(registryChangeData *registryChangeInputData) {
+	klog.Infof("Removing chageRegistrySecret %s from context", registryChangeData.Address)
+	var emptyRegistryChangeData registryChange
+
+	c.rw.Lock()
+	defer c.rw.Unlock()
+	c.contextBuilder.secondaryRegistryData = emptyRegistryChangeData
+}
+
 func (c *BashibleContext) RemoveNodeUserConfiguration(nu *NodeUser) {
 	klog.Infof("Removing NodeUser %s from context", nu.Name)
 	ngBundlePairs := generateNgBundlePairs(nu.Spec.NodeGroups, []string{"*"})
@@ -831,10 +909,39 @@ func (c *BashibleContext) runModuleSourceCRDQueue(ctx context.Context) {
 	}
 }
 
+func (c *BashibleContext) runChangeRegistrySecretQueue(ctx context.Context) {
+	for {
+		select {
+		case <-ctx.Done():
+			return
+
+		case event := <-c.secondaryRegistrySecretQueue:
+			switch event.action {
+			case "add":
+				var changeRegistrySecretData registryChangeInputData
+				changeRegistrySecretData.FromMap(event.newObject.Data)
+				c.AddChangeRegistrySecret(&changeRegistrySecretData)
+			case "update":
+				continue
+			case "delete":
+				var changeRegistrySecretData registryChangeInputData
+				changeRegistrySecretData.FromMap(event.oldObject.Data)
+				c.RemoveChangeRegistrySecret(&changeRegistrySecretData)
+			}
+
+			c.emitter.emitChanges()
+		}
+	}
+}
+
 func (c *BashibleContext) OnNodeUserConfigurationsChanged() chan struct{} {
 	return c.nodeUsersConfigurationChanged
 }
 
 func (c *BashibleContext) OnModuleSourceChanged() chan struct{} {
 	return c.moduleSourcesConfigurationChanged
+}
+
+func (c *BashibleContext) OnSecondaryRegistryChanged() chan struct{} {
+	return c.secondaryRegistrySecretChanged
 }

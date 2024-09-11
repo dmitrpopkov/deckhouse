@@ -35,10 +35,11 @@ type ContextBuilder struct {
 
 	stepsStorage *StepsStorage
 
-	registryData     registry
-	clusterInputData inputData
-	versionMap       map[string]interface{}
-	imagesDigests    map[string]map[string]string // module: { image_name: tag }
+	registryData          registry
+	secondaryRegistryData registryChange
+	clusterInputData      inputData
+	versionMap            map[string]interface{}
+	imagesDigests         map[string]map[string]string // module: { image_name: tag }
 
 	// debug function injection
 	emitStepsOutput func(string, string, map[string]string)
@@ -63,10 +64,11 @@ type bashibleContexts map[string]interface{}
 type BashibleContextData struct {
 	bashibleContexts // rendered contexts
 
-	Images     map[string]map[string]string `json:"images" yaml:"images"`
-	VersionMap map[string]interface{}       `json:"versionMap" yaml:"versionMap"`
-	Registry   registry                     `json:"registry" yaml:"registry"`
-	Proxy      map[string]interface{}       `json:"proxy" yaml:"proxy"`
+	Images            map[string]map[string]string `json:"images" yaml:"images"`
+	VersionMap        map[string]interface{}       `json:"versionMap" yaml:"versionMap"`
+	Registry          registry                     `json:"registry" yaml:"registry"`
+	SecondaryRegistry registryChange               `json:"secondaryRegistry" yaml:"secondaryRegistry"`
+	Proxy             map[string]interface{}       `json:"proxy" yaml:"proxy"`
 }
 
 // Map returns context data as map[string]interface{} for proper yaml marshalling
@@ -79,6 +81,7 @@ func (bd BashibleContextData) Map() map[string]interface{} {
 
 	result["images"] = bd.Images
 	result["registry"] = bd.Registry
+	result["secondaryRegistry"] = bd.SecondaryRegistry
 	result["versionMap"] = bd.VersionMap
 	result["proxy"] = bd.Proxy
 
@@ -87,6 +90,10 @@ func (bd BashibleContextData) Map() map[string]interface{} {
 
 func (cb *ContextBuilder) SetRegistryData(rd registry) {
 	cb.registryData = rd
+}
+
+func (cb *ContextBuilder) SetSecondaryRegistryData(rd registryChange) {
+	cb.secondaryRegistryData = rd
 }
 
 func (cb *ContextBuilder) SetImagesData(data map[string]map[string]string) {
@@ -132,11 +139,12 @@ func (cb *ContextBuilder) getCloudProvider() string {
 
 func (cb *ContextBuilder) Build() (BashibleContextData, map[string][]byte, map[string]error) {
 	bb := BashibleContextData{
-		bashibleContexts: make(map[string]interface{}),
-		VersionMap:       cb.versionMap,
-		Images:           cb.imagesDigests,
-		Registry:         cb.registryData,
-		Proxy:            cb.clusterInputData.Proxy,
+		bashibleContexts:  make(map[string]interface{}),
+		VersionMap:        cb.versionMap,
+		Images:            cb.imagesDigests,
+		Registry:          cb.registryData,
+		SecondaryRegistry: cb.secondaryRegistryData,
+		Proxy:             cb.clusterInputData.Proxy,
 	}
 
 	ngMap := make(map[string][]byte)
@@ -154,10 +162,11 @@ func (cb *ContextBuilder) Build() (BashibleContextData, map[string][]byte, map[s
 			KubernetesCA:       cb.clusterInputData.KubernetesCA,
 			ModuleSourcesCA:    cb.moduleSourcesCA,
 		},
-		Registry:      cb.registryData,
-		Images:        cb.imagesDigests,
-		Proxy:         cb.clusterInputData.Proxy,
-		PackagesProxy: cb.clusterInputData.PackagesProxy,
+		Registry:          cb.registryData,
+		SecondaryRegistry: cb.secondaryRegistryData,
+		Images:            cb.imagesDigests,
+		Proxy:             cb.clusterInputData.Proxy,
+		PackagesProxy:     cb.clusterInputData.PackagesProxy,
 	}
 
 	cb.clusterInputData.AllowedBundles = append(cb.clusterInputData.AllowedBundles, "common") // temporary hack for using single bundle boostrap for all bundles
@@ -364,6 +373,71 @@ func (rid *registryInputData) FromMap(m map[string][]byte) {
 	}
 }
 
+func (rid *registryChangeInputData) FromMap(m map[string][]byte) {
+	if v, ok := m["address"]; ok {
+		rid.Address = string(v)
+	}
+	if v, ok := m["path"]; ok {
+		rid.Path = string(v)
+	}
+
+	if v, ok := m["scheme"]; ok {
+		rid.Scheme = string(v)
+	}
+
+	if v, ok := m["ca"]; ok {
+		rid.CA = string(v)
+	}
+
+	if v, ok := m[".dockerconfigjson"]; ok {
+		rid.DockerConfig = v
+	}
+
+	if v, ok := m["digests"]; ok {
+		rid.Digests = v
+	}
+}
+
+func (rid registryChangeInputData) toRegistry() registryChange {
+	var auth string
+	var digests map[string]string
+
+	if len(rid.DockerConfig) > 0 {
+		var dcfg dockerCfg
+		err := json.Unmarshal(rid.DockerConfig, &dcfg)
+		if err != nil {
+			panic(err)
+		}
+
+		if registryObj, ok := dcfg.Auths[rid.Address]; ok {
+			switch {
+			case registryObj.Auth != "":
+				auth = registryObj.Auth
+			case registryObj.Username != "" && registryObj.Password != "":
+				authRaw := fmt.Sprintf("%s:%s", registryObj.Username, registryObj.Password)
+				auth = base64.StdEncoding.EncodeToString([]byte(authRaw))
+			}
+		}
+	}
+
+	if len(rid.Digests) > 0 {
+		err := json.Unmarshal(rid.Digests, &digests)
+		if err != nil {
+			panic(err)
+		}
+	}
+
+	return registryChange{
+		Address:   rid.Address,
+		Path:      rid.Path,
+		Scheme:    rid.Scheme,
+		CA:        rid.CA,
+		DockerCFG: rid.DockerConfig,
+		Auth:      auth,
+		Digests:   digests,
+	}
+}
+
 func (rid registryInputData) toRegistry() registry {
 	var auth string
 
@@ -492,8 +566,9 @@ type tplContextCommon struct {
 	RunType string `json:"runType" yaml:"runType"`
 	Normal  normal `json:"normal" yaml:"normal"`
 
-	Images   map[string]map[string]string `json:"images" yaml:"images"`
-	Registry registry                     `json:"registry" yaml:"registry"`
+	Images            map[string]map[string]string `json:"images" yaml:"images"`
+	Registry          registry                     `json:"registry" yaml:"registry"`
+	SecondaryRegistry registryChange               `json:"secondaryRegistry,omitempty" yaml:"secondaryRegistry,omitempty"`
 
 	Proxy         map[string]interface{} `json:"proxy,omitempty" yaml:"proxy,omitempty"`
 	PackagesProxy map[string]interface{} `json:"packagesProxy,omitempty" yaml:"packagesProxy,omitempty"`
@@ -531,6 +606,16 @@ type normal struct {
 	ModuleSourcesCA    map[string]string `json:"moduleSourcesCA" yaml:"moduleSourcesCA"`
 }
 
+type registryChange struct {
+	Address   string            `json:"address,omitempty" yaml:"address,omitempty"`
+	Path      string            `json:"path,omitempty" yaml:"path,omitempty"`
+	Scheme    string            `json:"scheme,omitempty" yaml:"scheme,omitempty"`
+	CA        string            `json:"ca,omitempty" yaml:"ca,omitempty"`
+	DockerCFG []byte            `json:"dockerCfg,omitempty" yaml:"dockerCfg,omitempty"`
+	Auth      string            `json:"auth,omitempty" yaml:"auth,omitempty"`
+	Digests   map[string]string `json:"digests,omitempty" yaml:"digests,omitempty"`
+}
+
 type registry struct {
 	Address   string `json:"address" yaml:"address"`
 	Path      string `json:"path" yaml:"path"`
@@ -547,6 +632,23 @@ type registryInputData struct {
 	Scheme       string `json:"scheme" yaml:"scheme"`
 	CA           string `json:"ca,omitempty" yaml:"ca,omitempty"`
 	DockerConfig []byte `json:".dockerconfigjson" yaml:".dockerconfigjson"`
+}
+
+// input from secret
+type registryChangeInputData struct {
+	Address      string `json:"address,omitempty" yaml:"address,omitempty"`
+	Path         string `json:"path,omitempty" yaml:"path,omitempty"`
+	Scheme       string `json:"scheme,omitempty" yaml:"scheme,omitempty"`
+	CA           string `json:"ca,omitempty" yaml:"ca,omitempty"`
+	DockerConfig []byte `json:".dockerconfigjson,omitempty" yaml:".dockerconfigjson,omitempty"`
+	Digests      []byte `json:"digests,omitempty" yaml:"digests,omitempty"`
+}
+
+type digests struct {
+	Digests map[string]struct {
+		Pause              string `json:"pause" yaml:"pause"`
+		KubernetesApiProxy string `json:"kubernetesApiProxy" yaml:"kubernetesApiProxy"`
+	} `json:"Digests"`
 }
 
 type dockerCfg struct {
