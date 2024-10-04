@@ -239,11 +239,6 @@
   stageDependencies:
     setup:
         - '**/*.go'
-- add: /ee/modules/381-l2-load-balancer
-  to: /deckhouse/modules/381-l2-load-balancer
-  stageDependencies:
-    setup:
-        - '**/*.go'
 - add: /ee/modules/450-keepalived
   to: /deckhouse/modules/450-keepalived
   stageDependencies:

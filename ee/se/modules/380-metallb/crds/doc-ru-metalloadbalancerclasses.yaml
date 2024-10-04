@@ -1,0 +1,41 @@
+spec:
+  versions:
+    - name: v1alpha1
+      schema:
+        openAPIV3Schema:
+          description: |
+            Описывает ресурс MetalLoadBalancerClass для кластера.
+          properties:
+            spec:
+              properties:
+                isDefault:
+                  description: |-
+                    Выбран ли MetalLoadBalancerClass для всех сервисов по умолчанию.
+                l2:
+                  properties:
+                    interfaces:
+                      description: |-
+                        Список сетевых интерфейсов, с которых будут объявлены назначенные IP-адреса.
+                        Если это поле не заполнено или указан пустой массив, объявление будет производиться со всех интерфейсов узла.
+                type:
+                  description: |-
+                    Выбор режима работы балансировщика нагрузки.
+                addressPool:
+                  description: |-
+                    Массив диапазонов публичных IP-адресов. Каждый диапазон может быть указан с помощью CIDR или прямого указания.
+                interfaces:
+                  description: |-
+                    Список сетевых интерфейсов, с которых будет производиться анонс присвоенных IP адресов.
+
+                    Если поле не заполнено или задан пустой массив, то будет происходить анонс со всех
+                    интерфейсов узла.
+                nodeSelector:
+                  description: |-
+                    Позволяет ограничить список узлов, с которых будет происходить анонс.
+
+                    Задается в виде набора лейблов для фильтрации узлов.
+                tolerations:
+                  properties:
+                    operator:
+                      description: |-
+                        Структура аналогичная параметру `spec.tolerations` пода Kubernetes.

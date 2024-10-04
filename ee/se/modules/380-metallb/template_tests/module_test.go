@@ -57,25 +57,32 @@ const (
     localpref: 150
 `
 
-	addressPoolsL2 = `
-- name: mypool1
-  auto-assign: false
-  avoid-buggy-ips: true
-  protocol: layer2
-  addresses:
-  - 192.168.0.0/24
-- name: mypool2
-  auto-assign: true
-  avoid-buggy-ips: false
-  protocol: layer2
-  addresses:
-  - 192.168.1.0-192.168.1.255
-`
-
 	bgpCommunities = `
 comm1: 65535:65282
 comm2: 1111:1111
 unusable: 2222:2222
+`
+
+	l2LoadBalancerValues = `
+l2loadbalancers:
+  - name: main-a
+    interfaces:
+    - eth0
+    - eth1
+    addressPool:
+    - 192.168.199.100-192.168.199.110
+    nodeSelector:
+      node-role.kubernetes.io/worker: ""
+l2lbservices:
+- name: ingress-1
+  namespace: nginx
+  preferredNode: frontend-1
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 80
+  selector:
+    app: nginx
 `
 )
 
@@ -95,6 +102,8 @@ var _ = Describe("Module :: metallb :: helm template ::", func() {
 			f.ValuesSetFromYaml("metallb.bgpPeers", bgpPeers)
 			f.ValuesSetFromYaml("metallb.addressPools", addressPoolsBGP)
 			f.ValuesSetFromYaml("metallb.bgpCommunities", bgpCommunities)
+			f.ValuesSetFromYaml("metallb.loadBalancerClass", "my-lb-class")
+			f.ValuesSetFromYaml("metallb.internal", l2LoadBalancerValues)
 			f.HelmRender()
 		})
 
@@ -175,53 +184,41 @@ localPref: 150
 
 		})
 	})
-	Context("addressPools in L2 mode are set", func() {
+
+	Context("Cluster with l2LoadBalancer", func() {
 		BeforeEach(func() {
-			f.ValuesSetFromYaml("metallb.addressPools", addressPoolsL2)
+			f.ValuesSetFromYaml("global.discovery.d8SpecificNodeCountByRole", "{}")
+			f.ValuesSetFromYaml("metallb.loadBalancerClass", "my-lb-class")
+			f.ValuesSetFromYaml("metallb.internal", l2LoadBalancerValues)
 			f.HelmRender()
 		})
 
-		It("Should create a resources with our values", func() {
+		It("Everything must render properly", func() {
 			Expect(f.RenderError).ShouldNot(HaveOccurred())
 
-			ipAddressPool1 := f.KubernetesResource("IPAddressPool", "d8-metallb", "mypool1")
-			Expect(ipAddressPool1.Exists()).To(BeTrue())
-			Expect(ipAddressPool1.Field("spec").String()).To(MatchYAML(`
+			ipAddressPool := f.KubernetesResource("IPAddressPool", "d8-metallb", "main-a")
+			Expect(ipAddressPool.Exists()).To(BeTrue())
+			Expect(ipAddressPool.Field("spec").String()).To(MatchYAML(`
 addresses:
-- 192.168.0.0/24
-autoAssign: false
-avoidBuggyIPs: true
-`))
-
-			ipAddressPool2 := f.KubernetesResource("IPAddressPool", "d8-metallb", "mypool2")
-			Expect(ipAddressPool2.Exists()).To(BeTrue())
-			Expect(ipAddressPool2.Field("spec").String()).To(MatchYAML(`
-addresses:
-- 192.168.1.0-192.168.1.255
+- 192.168.199.100-192.168.199.110
 autoAssign: true
-avoidBuggyIPs: false
 `))
 
-			bgpAdvertisement1 := f.KubernetesResource("BGPAdvertisement", "d8-metallb", "mypool1-0")
-			Expect(bgpAdvertisement1.Exists()).To(BeFalse())
-
-			bgpAdvertisement2 := f.KubernetesResource("BGPAdvertisement", "d8-metallb", "mypool2-0")
-			Expect(bgpAdvertisement2.Exists()).To(BeFalse())
-
-			l2Advertisement1 := f.KubernetesResource("L2Advertisement", "d8-metallb", "mypool1")
-			Expect(l2Advertisement1.Exists()).To(BeTrue())
-			Expect(l2Advertisement1.Field("spec").String()).To(MatchYAML(`
+			ipAdv := f.KubernetesResource("L2Advertisement", "d8-metallb", "main-a")
+			Expect(ipAdv.Exists()).To(BeTrue())
+			Expect(ipAdv.Field("spec").String()).To(MatchYAML(`
+interfaces:
+- eth0
+- eth1
 ipAddressPools:
-- mypool1
+- main-a
+nodeSelectors:
+- matchLabels:
+    node-role.kubernetes.io/worker: ""
 `))
 
-			l2Advertisement2 := f.KubernetesResource("L2Advertisement", "d8-metallb", "mypool2")
-			Expect(l2Advertisement2.Exists()).To(BeTrue())
-			Expect(l2Advertisement2.Field("spec").String()).To(MatchYAML(`
-ipAddressPools:
-- mypool2
-`))
-
+			dsSpeaker := f.KubernetesResource("DaemonSet", "d8-metallb", "l2lb-speaker")
+			Expect(dsSpeaker.Exists()).To(BeTrue())
 		})
 	})
 })

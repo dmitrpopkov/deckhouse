@@ -2370,10 +2370,10 @@ alerts:
       severity: "4"
       markupFormat: markdown
     - name: L2LoadBalancerModuleDeprecated
-      sourceFile: ee/modules/381-l2-load-balancer/monitoring/prometheus-rules/services.yaml
-      moduleUrl: 381-l2-load-balancer
-      module: l2-load-balancer
-      edition: ee
+      sourceFile: ee/se/modules/380-metallb/monitoring/prometheus-rules/services.yaml
+      moduleUrl: 380-metallb
+      module: metallb
+      edition: se
       description: |
         The L2LoadBalancer module is deprecated and will be removed in a future release. Disable the module and use MetalLB module in L2 mode.
       summary: |
@@ -2381,10 +2381,10 @@ alerts:
       severity: "3"
       markupFormat: markdown
     - name: L2LoadBalancerOrphanServiceFound
-      sourceFile: ee/modules/381-l2-load-balancer/monitoring/prometheus-rules/services.yaml
-      moduleUrl: 381-l2-load-balancer
-      module: l2-load-balancer
-      edition: ee
+      sourceFile: ee/se/modules/380-metallb/monitoring/prometheus-rules/services.yaml
+      moduleUrl: 380-metallb
+      module: metallb
+      edition: se
       description: |
         There is orphan service in the namespace: `{{$labels.namespace}}` with the name: `{{$labels.name}}` which has irrelevant L2LoadBalancer name.
 
@@ -3053,7 +3053,6 @@ modules-having-alerts:
     - flow-schema
     - ingress-nginx
     - istio
-    - l2-load-balancer
     - log-shipper
     - metallb
     - monitoring-custom
