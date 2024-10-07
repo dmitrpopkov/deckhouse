@@ -6,6 +6,63 @@ gitWorktree:
 cleanup:
   disableGitHistoryBasedPolicy: {{ env "WERF_DISABLE_META_TAGS" "false" }}
 ---
+{{- $_ := set . "DistroPackagesProxy" (env "DISTRO_PACKAGES_PROXY" "") }}
+{{- $_ := set . "CargoProxy" (env "CARGO_PROXY" "") }}
+# Templates for distro proxy for packages (deb,rpm,apk)
+  {{- define "alt packages proxy" }}
+# Replace altlinux repos with our proxy
+  {{- if $.DistroPackagesProxy }}
+- sed -i "s|ftp.altlinux.org/pub/distributions/ALTLinux|{{ $.DistroPackagesProxy }}/repository/ALT-Linux-APT-Repository|g" /etc/apt/sources.list.d/alt.list
+  {{- end }}
+- export DEBIAN_FRONTEND=noninteractive
+- apt-get update
+{{- end }}
+
+{{- define "debian packages proxy" }}
+# Replace debian repos with our proxy
+  {{- if $.DistroPackagesProxy }}
+- sed -i "s|http://deb.debian.org|http://{{ $.DistroPackagesProxy }}/repository|g" /etc/apt/sources.list
+  {{- end }}
+- export DEBIAN_FRONTEND=noninteractive
+- apt-get update
+{{- end }}
+
+{{- define "ubuntu packages proxy" }}
+  # Replace ubuntu repos with our proxy
+  {{- if $.DistroPackagesProxy }}
+- sed -i 's|http://archive.ubuntu.com|http://{{ $.DistroPackagesProxy }}/repository/archive-ubuntu|g' /etc/apt/sources.list
+- sed -i 's|http://security.ubuntu.com|http://{{ $.DistroPackagesProxy }}/repository/security-ubuntu|g' /etc/apt/sources.list
+  {{- end }}
+- export DEBIAN_FRONTEND=noninteractive
+- apt-get update
+{{- end }}
+
+{{- define "alpine packages proxy" }}
+# Replace alpine repos with our proxy
+  {{- if $.DistroPackagesProxy }}
+- sed -i 's|https://dl-cdn.alpinelinux.org|http://{{ $.DistroPackagesProxy }}/repository|g' /etc/apk/repositories
+  {{- end }}
+- apk update
+{{- end }}
+
+{{- define "node packages proxy" }}
+  {{- if $.DistroPackagesProxy }}
+- npm config set registry http://{{ $.DistroPackagesProxy }}/repository/npmjs/
+  {{- end }}
+{{- end }}
+
+{{- define "pypi proxy" }}
+  {{- if $.DistroPackagesProxy }}
+- |
+  cat <<"EOD" > /etc/pip.conf
+  [global]
+  index = http://{{ $.DistroPackagesProxy }}/repository/pypi-proxy/pypi
+  index-url = http://{{ $.DistroPackagesProxy }}/repository/pypi-proxy/simple
+  trusted-host = {{ $.DistroPackagesProxy }}
+  EOD
+  {{- end }}
+{{- end }}
+---
 # revisions settings
 {{- $editionsSettings := (.Files.Get "editions.yaml" | fromYaml) }}
 {{- $_ := set . "Editions" $editionsSettings.editions }}
@@ -58,10 +115,32 @@ cleanup:
 
 # goproxy  settings
 {{- $_ := set . "GOPROXY" (env "GOPROXY") }}
-
 ---
-artifact: jq
-from: {{ $.Images.BASE_ALPINE_DEV }}
+# base artifact to store sources
+artifact: src-artifact
+from: {{ $.Images.BASE_ALPINE }}
+shell:
+  beforeInstall:
+  {{- include "alpine packages proxy" . | nindent 2 }}
+  - apk add --no-cache git
+  - mkdir -p /src
+---
+# base artifact to do relocate
+artifact: relocate-artifact
+from: {{ $.Images.BASE_ALT_P11 }}
+git:
+- add: /tools/binary_replace/binary_replace.sh
+  to: /binary_replace.sh
+  stageDependencies:
+    install:
+    - '**/*'
+shell:
+  install:
+  {{- include "alt packages proxy" . | nindent 2 }}
+  - apt-get install -y glibc-utils
+---
+artifact: jq-src-artifact
+fromArtifact: src-artifact
 git:
 - url: {{ .SOURCE_REPO }}/jqlang/jq
   add: /
@@ -70,19 +149,24 @@ git:
   stageDependencies:
     install:
     - "**/*"
-ansible:
+---
+artifact: jq
+from: {{ $.Images.BASE_ALPINE }}
+import:
+- artifact: jq-src-artifact
+  add: /src
+  to: /src
+  before: install
+shell:
+  beforeInstall:
+  {{- include "alpine packages proxy" . | nindent 2 }}
+  - apk add --no-cache git make autoconf pkgconf automake libtool build-base g++
   install:
-  - shell: |
-      cd /src
-      autoreconf -fi
-      ./configure \
-        --prefix=/usr \
-        --sysconfdir=/etc \
-        --mandir=/usr/share/man \
-        --localstatedir=/var \
-        --disable-docs
-      make LDFLAGS=-all-static
-      make prefix=/usr install
+  - cd /src
+  - autoreconf -fi
+  - ./configure --prefix=/usr --sysconfdir=/etc --mandir=/usr/share/man --localstatedir=/var --disable-docs
+  - make LDFLAGS=-all-static
+  - make prefix=/usr install
 
 ---
 artifact: yq4-artifact
@@ -128,7 +212,29 @@ shell:
   - cd /tini/
   - export CFLAGS="-DPR_SET_CHILD_SUBREAPER=36 -DPR_GET_CHILD_SUBREAPER=37"
   - cmake . && make
-
+---
+artifact: task-src-artifact
+fromArtifact: src-artifact
+shell:
+  install:
+    - git clone --depth 1 --branch v3.39.2 {{ $.SOURCE_REPO }}/go-task/task.git /src
+---
+artifact: task-artifact
+from: {{ $.Images.BASE_GOLANG_23_BULLSEYE }}
+import:
+  - artifact: task-src-artifact
+    add: /src
+    to: /src
+    before: install
+mount:
+  - fromPath: ~/go-pkg-cache
+    to: /go/pkg
+shell:
+  install:
+    - export GOPROXY={{ $.GOPROXY }}
+    - cd /src
+    - CGO_ENABLED=0 go install -v ./cmd/task
+    - mv /go/bin/task /
 ---
 {{- define "base components imports" }}
 - artifact: tini-artifact
@@ -223,7 +329,7 @@ import:
   to: /etc/ssl
   before: setup
 
-- artifact: registrypackages/d8-curl-artifact-8-2-1
+- artifact: registrypackages/d8-curl-artifact-8-9-1
   add: /d8-curl
   to: /usr/bin/curl
   before: setup
@@ -243,7 +349,7 @@ ansible:
   - name: "Install golang for deckhouse-controller,dhctl and testing image build"
     shell: |
       rm -rf /usr/local/go
-      curl -sSfL https://go.dev/dl/go1.22.2.linux-amd64.tar.gz -o - | tar -C /usr/local -zxvf -
+      curl -sSfL https://go.dev/dl/go1.23.2.linux-amd64.tar.gz -o - | tar -C /usr/local -zxvf -
   {{- include "base components" . | nindent 2 }}
 
 ---
@@ -259,10 +365,12 @@ ansible:
 - modules/*/apis/**/*.go
 - modules/*/requirements/**/*.go
 - modules/*/settings-conversion/**/*.go
-- modules/*/hack/**/*.go
+- modules/*/openapi/conversions/*.go
+- modules/*/hack
 - global-hooks/**/*.go
 - candi/cloud-providers/*/layouts
 - candi/cloud-providers/*/terraform-modules
+- modules/*/**/*pull*crds.sh
 - '**/testdata'
 {{- end}}
 
@@ -948,12 +1056,16 @@ dependencies:
   {{- $_ := set $ctx "TF" $Root.TF }}
   {{- $_ := set $ctx "SOURCE_REPO" $Root.SOURCE_REPO }}
   {{- $_ := set $ctx "GOPROXY" $Root.GOPROXY }}
+  {{- $_ := set $ctx "DistroPackagesProxy" $Root.DistroPackagesProxy }}
+  {{- $_ := set $ctx "CargoProxy" $Root.CargoProxy }}
 ---
 {{ include "module_image_template" $ctx }}
   {{- range $ImageYamlMainfest := regexSplit "\n?---[ \t]*\n" (include "module_image_template" $ctx) -1 }}
     {{- $ImageManifest := $ImageYamlMainfest | fromYaml }}
     {{- if $ImageManifest.image }}
-      {{- $ModulesImagesDigestList = append $ModulesImagesDigestList $ImageManifest.image }}
+      {{- if ne $ImageManifest.final false }}
+        {{- $ModulesImagesDigestList = append $ModulesImagesDigestList $ImageManifest.image }}
+      {{- end }}
     {{- end }}
   {{- end }}
 {{- end }}

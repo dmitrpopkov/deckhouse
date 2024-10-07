@@ -5,10 +5,17 @@
     - docs
     - README.md
     - images
+    - capi
     - hooks/**/*.go
     - hooks/*.go
-    - hack
     - template_tests
+    - apis/**/*.go
+    - requirements/**/*.go
+    - settings-conversion/**/*.go
+    - openapi/conversions/*.go
+    - hack
+    - crds/**/*pull*crds.sh
+    - api/**/*.go
     - .namespace
     - values_matrix_test.yaml
     - .build.yaml
@@ -18,10 +25,17 @@
     - docs
     - README.md
     - images
+    - capi
     - hooks/**/*.go
     - hooks/*.go
-    - hack
     - template_tests
+    - apis/**/*.go
+    - requirements/**/*.go
+    - settings-conversion/**/*.go
+    - openapi/conversions/*.go
+    - hack
+    - crds/**/*pull*crds.sh
+    - api/**/*.go
     - .namespace
     - values_matrix_test.yaml
     - .build.yaml
@@ -31,10 +45,17 @@
     - docs
     - README.md
     - images
+    - capi
     - hooks/**/*.go
     - hooks/*.go
-    - hack
     - template_tests
+    - apis/**/*.go
+    - requirements/**/*.go
+    - settings-conversion/**/*.go
+    - openapi/conversions/*.go
+    - hack
+    - crds/**/*pull*crds.sh
+    - api/**/*.go
     - .namespace
     - values_matrix_test.yaml
     - .build.yaml
@@ -44,10 +65,17 @@
     - docs
     - README.md
     - images
+    - capi
     - hooks/**/*.go
     - hooks/*.go
-    - hack
     - template_tests
+    - apis/**/*.go
+    - requirements/**/*.go
+    - settings-conversion/**/*.go
+    - openapi/conversions/*.go
+    - hack
+    - crds/**/*pull*crds.sh
+    - api/**/*.go
     - .namespace
     - values_matrix_test.yaml
     - .build.yaml
@@ -57,10 +85,17 @@
     - docs
     - README.md
     - images
+    - capi
     - hooks/**/*.go
     - hooks/*.go
-    - hack
     - template_tests
+    - apis/**/*.go
+    - requirements/**/*.go
+    - settings-conversion/**/*.go
+    - openapi/conversions/*.go
+    - hack
+    - crds/**/*pull*crds.sh
+    - api/**/*.go
     - .namespace
     - values_matrix_test.yaml
     - .build.yaml
@@ -70,10 +105,17 @@
     - docs
     - README.md
     - images
+    - capi
     - hooks/**/*.go
     - hooks/*.go
-    - hack
     - template_tests
+    - apis/**/*.go
+    - requirements/**/*.go
+    - settings-conversion/**/*.go
+    - openapi/conversions/*.go
+    - hack
+    - crds/**/*pull*crds.sh
+    - api/**/*.go
     - .namespace
     - values_matrix_test.yaml
     - .build.yaml
@@ -83,10 +125,17 @@
     - docs
     - README.md
     - images
+    - capi
     - hooks/**/*.go
     - hooks/*.go
-    - hack
     - template_tests
+    - apis/**/*.go
+    - requirements/**/*.go
+    - settings-conversion/**/*.go
+    - openapi/conversions/*.go
+    - hack
+    - crds/**/*pull*crds.sh
+    - api/**/*.go
     - .namespace
     - values_matrix_test.yaml
     - .build.yaml
@@ -96,10 +145,17 @@
     - docs
     - README.md
     - images
+    - capi
     - hooks/**/*.go
     - hooks/*.go
-    - hack
     - template_tests
+    - apis/**/*.go
+    - requirements/**/*.go
+    - settings-conversion/**/*.go
+    - openapi/conversions/*.go
+    - hack
+    - crds/**/*pull*crds.sh
+    - api/**/*.go
     - .namespace
     - values_matrix_test.yaml
     - .build.yaml
@@ -109,10 +165,17 @@
     - docs
     - README.md
     - images
+    - capi
     - hooks/**/*.go
     - hooks/*.go
-    - hack
     - template_tests
+    - apis/**/*.go
+    - requirements/**/*.go
+    - settings-conversion/**/*.go
+    - openapi/conversions/*.go
+    - hack
+    - crds/**/*pull*crds.sh
+    - api/**/*.go
     - .namespace
     - values_matrix_test.yaml
     - .build.yaml
@@ -122,10 +185,17 @@
     - docs
     - README.md
     - images
+    - capi
     - hooks/**/*.go
     - hooks/*.go
-    - hack
     - template_tests
+    - apis/**/*.go
+    - requirements/**/*.go
+    - settings-conversion/**/*.go
+    - openapi/conversions/*.go
+    - hack
+    - crds/**/*pull*crds.sh
+    - api/**/*.go
     - .namespace
     - values_matrix_test.yaml
     - .build.yaml
@@ -135,10 +205,17 @@
     - docs
     - README.md
     - images
+    - capi
     - hooks/**/*.go
     - hooks/*.go
-    - hack
     - template_tests
+    - apis/**/*.go
+    - requirements/**/*.go
+    - settings-conversion/**/*.go
+    - openapi/conversions/*.go
+    - hack
+    - crds/**/*pull*crds.sh
+    - api/**/*.go
     - .namespace
     - values_matrix_test.yaml
     - .build.yaml
@@ -148,10 +225,17 @@
     - docs
     - README.md
     - images
+    - capi
     - hooks/**/*.go
     - hooks/*.go
-    - hack
     - template_tests
+    - apis/**/*.go
+    - requirements/**/*.go
+    - settings-conversion/**/*.go
+    - openapi/conversions/*.go
+    - hack
+    - crds/**/*pull*crds.sh
+    - api/**/*.go
     - .namespace
     - values_matrix_test.yaml
     - .build.yaml
@@ -161,10 +245,17 @@
     - docs
     - README.md
     - images
+    - capi
     - hooks/**/*.go
     - hooks/*.go
-    - hack
     - template_tests
+    - apis/**/*.go
+    - requirements/**/*.go
+    - settings-conversion/**/*.go
+    - openapi/conversions/*.go
+    - hack
+    - crds/**/*pull*crds.sh
+    - api/**/*.go
     - .namespace
     - values_matrix_test.yaml
     - .build.yaml
@@ -174,10 +265,17 @@
     - docs
     - README.md
     - images
+    - capi
     - hooks/**/*.go
     - hooks/*.go
-    - hack
     - template_tests
+    - apis/**/*.go
+    - requirements/**/*.go
+    - settings-conversion/**/*.go
+    - openapi/conversions/*.go
+    - hack
+    - crds/**/*pull*crds.sh
+    - api/**/*.go
     - .namespace
     - values_matrix_test.yaml
     - .build.yaml
@@ -187,23 +285,17 @@
     - docs
     - README.md
     - images
+    - capi
     - hooks/**/*.go
     - hooks/*.go
-    - hack
     - template_tests
-    - .namespace
-    - values_matrix_test.yaml
-    - .build.yaml
-- add: /ee/modules/021-cni-cilium/images/egress-gateway-agent
-  to: /deckhouse/modules/021-cni-cilium/images/egress-gateway-agent
-  excludePaths:
-    - docs
-    - README.md
-    - images
-    - hooks/**/*.go
-    - hooks/*.go
+    - apis/**/*.go
+    - requirements/**/*.go
+    - settings-conversion/**/*.go
+    - openapi/conversions/*.go
     - hack
-    - template_tests
+    - crds/**/*pull*crds.sh
+    - api/**/*.go
     - .namespace
     - values_matrix_test.yaml
     - .build.yaml
@@ -213,10 +305,17 @@
     - docs
     - README.md
     - images
+    - capi
     - hooks/**/*.go
     - hooks/*.go
-    - hack
     - template_tests
+    - apis/**/*.go
+    - requirements/**/*.go
+    - settings-conversion/**/*.go
+    - openapi/conversions/*.go
+    - hack
+    - crds/**/*pull*crds.sh
+    - api/**/*.go
     - .namespace
     - values_matrix_test.yaml
     - .build.yaml
@@ -226,10 +325,17 @@
     - docs
     - README.md
     - images
+    - capi
     - hooks/**/*.go
     - hooks/*.go
-    - hack
     - template_tests
+    - apis/**/*.go
+    - requirements/**/*.go
+    - settings-conversion/**/*.go
+    - openapi/conversions/*.go
+    - hack
+    - crds/**/*pull*crds.sh
+    - api/**/*.go
     - .namespace
     - values_matrix_test.yaml
     - .build.yaml
@@ -239,10 +345,17 @@
     - docs
     - README.md
     - images
+    - capi
     - hooks/**/*.go
     - hooks/*.go
-    - hack
     - template_tests
+    - apis/**/*.go
+    - requirements/**/*.go
+    - settings-conversion/**/*.go
+    - openapi/conversions/*.go
+    - hack
+    - crds/**/*pull*crds.sh
+    - api/**/*.go
     - .namespace
     - values_matrix_test.yaml
     - .build.yaml
@@ -252,10 +365,17 @@
     - docs
     - README.md
     - images
+    - capi
     - hooks/**/*.go
     - hooks/*.go
-    - hack
     - template_tests
+    - apis/**/*.go
+    - requirements/**/*.go
+    - settings-conversion/**/*.go
+    - openapi/conversions/*.go
+    - hack
+    - crds/**/*pull*crds.sh
+    - api/**/*.go
     - .namespace
     - values_matrix_test.yaml
     - .build.yaml
@@ -265,10 +385,17 @@
     - docs
     - README.md
     - images
+    - capi
     - hooks/**/*.go
     - hooks/*.go
-    - hack
     - template_tests
+    - apis/**/*.go
+    - requirements/**/*.go
+    - settings-conversion/**/*.go
+    - openapi/conversions/*.go
+    - hack
+    - crds/**/*pull*crds.sh
+    - api/**/*.go
     - .namespace
     - values_matrix_test.yaml
     - .build.yaml
@@ -278,10 +405,17 @@
     - docs
     - README.md
     - images
+    - capi
     - hooks/**/*.go
     - hooks/*.go
-    - hack
     - template_tests
+    - apis/**/*.go
+    - requirements/**/*.go
+    - settings-conversion/**/*.go
+    - openapi/conversions/*.go
+    - hack
+    - crds/**/*pull*crds.sh
+    - api/**/*.go
     - .namespace
     - values_matrix_test.yaml
     - .build.yaml
@@ -291,10 +425,17 @@
     - docs
     - README.md
     - images
+    - capi
     - hooks/**/*.go
     - hooks/*.go
-    - hack
     - template_tests
+    - apis/**/*.go
+    - requirements/**/*.go
+    - settings-conversion/**/*.go
+    - openapi/conversions/*.go
+    - hack
+    - crds/**/*pull*crds.sh
+    - api/**/*.go
     - .namespace
     - values_matrix_test.yaml
     - .build.yaml
@@ -304,10 +445,17 @@
     - docs
     - README.md
     - images
+    - capi
     - hooks/**/*.go
     - hooks/*.go
-    - hack
     - template_tests
+    - apis/**/*.go
+    - requirements/**/*.go
+    - settings-conversion/**/*.go
+    - openapi/conversions/*.go
+    - hack
+    - crds/**/*pull*crds.sh
+    - api/**/*.go
     - .namespace
     - values_matrix_test.yaml
     - .build.yaml
@@ -317,10 +465,17 @@
     - docs
     - README.md
     - images
+    - capi
     - hooks/**/*.go
     - hooks/*.go
-    - hack
     - template_tests
+    - apis/**/*.go
+    - requirements/**/*.go
+    - settings-conversion/**/*.go
+    - openapi/conversions/*.go
+    - hack
+    - crds/**/*pull*crds.sh
+    - api/**/*.go
     - .namespace
     - values_matrix_test.yaml
     - .build.yaml
@@ -330,10 +485,17 @@
     - docs
     - README.md
     - images
+    - capi
     - hooks/**/*.go
     - hooks/*.go
-    - hack
     - template_tests
+    - apis/**/*.go
+    - requirements/**/*.go
+    - settings-conversion/**/*.go
+    - openapi/conversions/*.go
+    - hack
+    - crds/**/*pull*crds.sh
+    - api/**/*.go
     - .namespace
     - values_matrix_test.yaml
     - .build.yaml
@@ -343,10 +505,17 @@
     - docs
     - README.md
     - images
+    - capi
     - hooks/**/*.go
     - hooks/*.go
-    - hack
     - template_tests
+    - apis/**/*.go
+    - requirements/**/*.go
+    - settings-conversion/**/*.go
+    - openapi/conversions/*.go
+    - hack
+    - crds/**/*pull*crds.sh
+    - api/**/*.go
     - .namespace
     - values_matrix_test.yaml
     - .build.yaml
@@ -356,10 +525,17 @@
     - docs
     - README.md
     - images
+    - capi
     - hooks/**/*.go
     - hooks/*.go
-    - hack
     - template_tests
+    - apis/**/*.go
+    - requirements/**/*.go
+    - settings-conversion/**/*.go
+    - openapi/conversions/*.go
+    - hack
+    - crds/**/*pull*crds.sh
+    - api/**/*.go
     - .namespace
     - values_matrix_test.yaml
     - .build.yaml
@@ -369,10 +545,17 @@
     - docs
     - README.md
     - images
+    - capi
     - hooks/**/*.go
     - hooks/*.go
-    - hack
     - template_tests
+    - apis/**/*.go
+    - requirements/**/*.go
+    - settings-conversion/**/*.go
+    - openapi/conversions/*.go
+    - hack
+    - crds/**/*pull*crds.sh
+    - api/**/*.go
     - .namespace
     - values_matrix_test.yaml
     - .build.yaml
@@ -382,10 +565,17 @@
     - docs
     - README.md
     - images
+    - capi
     - hooks/**/*.go
     - hooks/*.go
-    - hack
     - template_tests
+    - apis/**/*.go
+    - requirements/**/*.go
+    - settings-conversion/**/*.go
+    - openapi/conversions/*.go
+    - hack
+    - crds/**/*pull*crds.sh
+    - api/**/*.go
     - .namespace
     - values_matrix_test.yaml
     - .build.yaml
@@ -395,10 +585,17 @@
     - docs
     - README.md
     - images
+    - capi
     - hooks/**/*.go
     - hooks/*.go
-    - hack
     - template_tests
+    - apis/**/*.go
+    - requirements/**/*.go
+    - settings-conversion/**/*.go
+    - openapi/conversions/*.go
+    - hack
+    - crds/**/*pull*crds.sh
+    - api/**/*.go
     - .namespace
     - values_matrix_test.yaml
     - .build.yaml
@@ -408,10 +605,17 @@
     - docs
     - README.md
     - images
+    - capi
     - hooks/**/*.go
     - hooks/*.go
-    - hack
     - template_tests
+    - apis/**/*.go
+    - requirements/**/*.go
+    - settings-conversion/**/*.go
+    - openapi/conversions/*.go
+    - hack
+    - crds/**/*pull*crds.sh
+    - api/**/*.go
     - .namespace
     - values_matrix_test.yaml
     - .build.yaml
@@ -421,10 +625,17 @@
     - docs
     - README.md
     - images
+    - capi
     - hooks/**/*.go
     - hooks/*.go
-    - hack
     - template_tests
+    - apis/**/*.go
+    - requirements/**/*.go
+    - settings-conversion/**/*.go
+    - openapi/conversions/*.go
+    - hack
+    - crds/**/*pull*crds.sh
+    - api/**/*.go
     - .namespace
     - values_matrix_test.yaml
     - .build.yaml
@@ -434,10 +645,17 @@
     - docs
     - README.md
     - images
+    - capi
     - hooks/**/*.go
     - hooks/*.go
-    - hack
     - template_tests
+    - apis/**/*.go
+    - requirements/**/*.go
+    - settings-conversion/**/*.go
+    - openapi/conversions/*.go
+    - hack
+    - crds/**/*pull*crds.sh
+    - api/**/*.go
     - .namespace
     - values_matrix_test.yaml
     - .build.yaml
@@ -447,10 +665,17 @@
     - docs
     - README.md
     - images
+    - capi
     - hooks/**/*.go
     - hooks/*.go
-    - hack
     - template_tests
+    - apis/**/*.go
+    - requirements/**/*.go
+    - settings-conversion/**/*.go
+    - openapi/conversions/*.go
+    - hack
+    - crds/**/*pull*crds.sh
+    - api/**/*.go
     - .namespace
     - values_matrix_test.yaml
     - .build.yaml
@@ -460,10 +685,17 @@
     - docs
     - README.md
     - images
+    - capi
     - hooks/**/*.go
     - hooks/*.go
-    - hack
     - template_tests
+    - apis/**/*.go
+    - requirements/**/*.go
+    - settings-conversion/**/*.go
+    - openapi/conversions/*.go
+    - hack
+    - crds/**/*pull*crds.sh
+    - api/**/*.go
     - .namespace
     - values_matrix_test.yaml
     - .build.yaml
@@ -473,10 +705,17 @@
     - docs
     - README.md
     - images
+    - capi
     - hooks/**/*.go
     - hooks/*.go
-    - hack
     - template_tests
+    - apis/**/*.go
+    - requirements/**/*.go
+    - settings-conversion/**/*.go
+    - openapi/conversions/*.go
+    - hack
+    - crds/**/*pull*crds.sh
+    - api/**/*.go
     - .namespace
     - values_matrix_test.yaml
     - .build.yaml
@@ -486,10 +725,17 @@
     - docs
     - README.md
     - images
+    - capi
     - hooks/**/*.go
     - hooks/*.go
-    - hack
     - template_tests
+    - apis/**/*.go
+    - requirements/**/*.go
+    - settings-conversion/**/*.go
+    - openapi/conversions/*.go
+    - hack
+    - crds/**/*pull*crds.sh
+    - api/**/*.go
     - .namespace
     - values_matrix_test.yaml
     - .build.yaml
@@ -499,10 +745,17 @@
     - docs
     - README.md
     - images
+    - capi
     - hooks/**/*.go
     - hooks/*.go
-    - hack
     - template_tests
+    - apis/**/*.go
+    - requirements/**/*.go
+    - settings-conversion/**/*.go
+    - openapi/conversions/*.go
+    - hack
+    - crds/**/*pull*crds.sh
+    - api/**/*.go
     - .namespace
     - values_matrix_test.yaml
     - .build.yaml
@@ -512,10 +765,17 @@
     - docs
     - README.md
     - images
+    - capi
     - hooks/**/*.go
     - hooks/*.go
-    - hack
     - template_tests
+    - apis/**/*.go
+    - requirements/**/*.go
+    - settings-conversion/**/*.go
+    - openapi/conversions/*.go
+    - hack
+    - crds/**/*pull*crds.sh
+    - api/**/*.go
     - .namespace
     - values_matrix_test.yaml
     - .build.yaml
@@ -525,10 +785,17 @@
     - docs
     - README.md
     - images
+    - capi
     - hooks/**/*.go
     - hooks/*.go
-    - hack
     - template_tests
+    - apis/**/*.go
+    - requirements/**/*.go
+    - settings-conversion/**/*.go
+    - openapi/conversions/*.go
+    - hack
+    - crds/**/*pull*crds.sh
+    - api/**/*.go
     - .namespace
     - values_matrix_test.yaml
     - .build.yaml
@@ -538,10 +805,17 @@
     - docs
     - README.md
     - images
+    - capi
     - hooks/**/*.go
     - hooks/*.go
-    - hack
     - template_tests
+    - apis/**/*.go
+    - requirements/**/*.go
+    - settings-conversion/**/*.go
+    - openapi/conversions/*.go
+    - hack
+    - crds/**/*pull*crds.sh
+    - api/**/*.go
     - .namespace
     - values_matrix_test.yaml
     - .build.yaml
@@ -551,10 +825,17 @@
     - docs
     - README.md
     - images
+    - capi
     - hooks/**/*.go
     - hooks/*.go
-    - hack
     - template_tests
+    - apis/**/*.go
+    - requirements/**/*.go
+    - settings-conversion/**/*.go
+    - openapi/conversions/*.go
+    - hack
+    - crds/**/*pull*crds.sh
+    - api/**/*.go
     - .namespace
     - values_matrix_test.yaml
     - .build.yaml
@@ -564,10 +845,17 @@
     - docs
     - README.md
     - images
+    - capi
     - hooks/**/*.go
     - hooks/*.go
-    - hack
     - template_tests
+    - apis/**/*.go
+    - requirements/**/*.go
+    - settings-conversion/**/*.go
+    - openapi/conversions/*.go
+    - hack
+    - crds/**/*pull*crds.sh
+    - api/**/*.go
     - .namespace
     - values_matrix_test.yaml
     - .build.yaml
@@ -577,10 +865,17 @@
     - docs
     - README.md
     - images
+    - capi
     - hooks/**/*.go
     - hooks/*.go
-    - hack
     - template_tests
+    - apis/**/*.go
+    - requirements/**/*.go
+    - settings-conversion/**/*.go
+    - openapi/conversions/*.go
+    - hack
+    - crds/**/*pull*crds.sh
+    - api/**/*.go
     - .namespace
     - values_matrix_test.yaml
     - .build.yaml
@@ -590,10 +885,17 @@
     - docs
     - README.md
     - images
+    - capi
     - hooks/**/*.go
     - hooks/*.go
-    - hack
     - template_tests
+    - apis/**/*.go
+    - requirements/**/*.go
+    - settings-conversion/**/*.go
+    - openapi/conversions/*.go
+    - hack
+    - crds/**/*pull*crds.sh
+    - api/**/*.go
     - .namespace
     - values_matrix_test.yaml
     - .build.yaml

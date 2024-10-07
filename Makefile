@@ -102,7 +102,7 @@ help:
 GOLANGCI_VERSION = 1.54.2
 TRIVY_VERSION= 0.38.3
 PROMTOOL_VERSION = 2.37.0
-GATOR_VERSION = 3.9.0
+GATOR_VERSION = 3.17.1
 GH_VERSION = 2.52.0
 TESTS_TIMEOUT="15m"
 
@@ -354,7 +354,8 @@ set-build-envs:
 
 build: set-build-envs ## Build Deckhouse images.
 	##~ Options: FOCUS=image-name
-	werf build --parallel=true --parallel-tasks-limit=5 --platform linux/amd64 --save-build-report=true --build-report-path images_tags_werf.json $(SECONDARY_REPO) $(FOCUS)
+	werf run --docker-options="-v /home/kar/deckhouse/cse-documentation/nginx/nginx.conf:/opt/nginx-static/conf/nginx.conf" --dev $(SECONDARY_REPO) $(FOCUS)
+	#werf build --parallel=true --parallel-tasks-limit=5 --platform linux/amd64 --save-build-report=true --build-report-path images_tags_werf.json --dev $(SECONDARY_REPO) $(FOCUS)
   ifeq ($(FOCUS),)
     ifneq ($(CI_COMMIT_REF_SLUG),)
 				@# By default in the Github CI_COMMIT_REF_SLUG is a 'prNUM' for dev branches.
@@ -394,4 +395,4 @@ build: set-build-envs ## Build Deckhouse images.
   endif
 
 build-render: set-build-envs ## render werf.yaml for build Deckhouse images.
-	werf config render
+	werf config render --dev
