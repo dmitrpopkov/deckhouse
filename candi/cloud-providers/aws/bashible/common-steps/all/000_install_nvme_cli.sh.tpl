@@ -12,4 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-bb-apt-install nvme-cli
+case $(bb-is-bundle) in
+  debian|ubuntu-lts) bb-apt-install nvme-cli ;;
+  centos) bb-yum-install nvme-cli ;;
+esac
