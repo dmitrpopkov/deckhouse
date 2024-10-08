@@ -78,7 +78,7 @@ ExecStart=/opt/deckhouse/bin/d8-kubelet-forker /opt/deckhouse/bin/kubelet \\
 {{- end }}
     --node-labels=node.deckhouse.io/group={{ .nodeGroup.name }} \\
     --node-labels=node.deckhouse.io/type={{ .nodeGroup.nodeType }} \\
-    --node-labels=node.deckhouse.io/virtualization-platform=${virtualization_platform}
+    --node-labels=node.deckhouse.io/virtualization-platform=${virtualization_platform} \\
     --bootstrap-kubeconfig=/etc/kubernetes/bootstrap-kubelet.conf \\
     --config=/var/lib/kubelet/config.yaml \\
     --kubeconfig=/etc/kubernetes/kubelet.conf \\
