@@ -50,7 +50,7 @@ virtualization_platform="no"
 if cat /sys/devices/virtual/dmi/id/product_name | grep -q "DeckhouseVirtualizationPlatform"; then
       virtualization_platform="yes"
 fi
-until bb-kubectl --kubeconfig $kubeconfig label --overwrite=true node "$node" node.deckhouse.io/virtualization-platform="$virtualization_platform"; do
+until bb-kubectl --kubeconfig $kubeconfig label --overwrite=true node "$node" node.deckhouse.io/dvp="$virtualization_platform"; do
   attempt=$(( attempt + 1 ))
   if [ "$attempt" -gt "$max_attempts" ]; then
     bb-log-error "failed to label node $node after $max_attempts attempts"
