@@ -1,4 +1,4 @@
-{{- define "istiod_rules_v-1-19" -}}
+{{- define "istiod_rules_v-1-21" -}}
 - apiGroups:
   - admissionregistration.k8s.io
   resources:
