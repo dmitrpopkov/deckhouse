@@ -164,8 +164,16 @@ rules:
       - clusterroles
       - roles
       - rolebindings
+      - subjectaccessreviews
     verbs:
-      - "*"
+      - get
+      - list
+      - watch
+      - create
+      - update
+      - patch
+      - delete
+      - deletecollection
   - apiGroups:
       - coordination.k8s.io
     resources:
