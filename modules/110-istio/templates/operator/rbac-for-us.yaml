@@ -164,8 +164,7 @@ rules:
       - clusterroles
       - roles
       - rolebindings
-    verbs:
-      - '*'
+    verbs: ["*"]
   - apiGroups:
       - coordination.k8s.io
     resources:
