@@ -165,15 +165,7 @@ rules:
       - roles
       - rolebindings
     verbs:
-      - get
-      - list
-      - watch
-      - create
-      - update
-      - patch
-      - delete
-      - deletecollection
-      - apply
+      - '*'
   - apiGroups:
       - coordination.k8s.io
     resources:
