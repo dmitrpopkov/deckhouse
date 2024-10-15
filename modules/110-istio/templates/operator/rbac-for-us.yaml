@@ -119,6 +119,20 @@ rules:
   - apiGroups:
       - ""
     resources:
+      - pods/finalizers
+    verbs:
+      - update
+  - apiGroups:
+      - networking.k8s.io
+    resources:
+      - ingressclasses
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - ""
+    resources:
       - nodes
       - replicationcontrollers
     verbs:
