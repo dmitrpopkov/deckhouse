@@ -85,37 +85,37 @@ rules:
       - watch
   - apiGroups:
       - config.istio.io
-    resources:
-      - "*"
-    verbs:
-      - get
-      - list
-      - watch
-  - apiGroups:
       - networking.istio.io
-    resources:
-      - "*"
-    verbs:
-      - get
-      - list
-      - watch
-  - apiGroups:
       - rbac.istio.io
-    resources:
-      - "*"
-    verbs:
-      - get
-      - list
-      - watch
-  - apiGroups:
       - security.istio.io
+      - telemetry.istio.io
+      - extensions.istio.io
+      - authentication.istio.io
     resources:
       - "*"
     verbs:
       - get
       - list
       - watch
-  # k8s groups 
+      - update
+  # k8s groups
+  - apiGroups:
+      - gateway.networking.k8s.io
+    resources:
+      - gatewayclasses
+    verbs:
+      - create
+      - update
+      - patch
+      - delete
+  - apiGroups:
+      - networking.x-k8s.io
+      - gateway.networking.k8s.io
+    resources:
+      - "*"
+    verbs:
+      - update
+      - patch
   - apiGroups:
       - extensions
       - networking.k8s.io
@@ -133,6 +133,7 @@ rules:
       - networking.k8s.io
     resources:
       - ingressclasses
+      - ingresses
     verbs:
       - get
       - list
@@ -140,7 +141,11 @@ rules:
   - apiGroups:
       - ""
     resources:
+      - pods
       - nodes
+      - services
+      - namespaces
+      - endpoints
       - replicationcontrollers
     verbs:
       - get
