@@ -77,6 +77,12 @@ rules:
       - deletecollection
   # k8s groups
   - apiGroups:
+      - coordination.k8s.io
+    resources:
+      - leases
+    verbs:
+      - patch
+  - apiGroups:
       - admissionregistration.k8s.io
     resources:
       - mutatingwebhookconfigurations
@@ -168,6 +174,7 @@ rules:
       - get
       - list
       - watch
+      - patch
   - apiGroups:
       - coordination.k8s.io
     resources:
