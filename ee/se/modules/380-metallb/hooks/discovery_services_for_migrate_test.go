@@ -49,7 +49,7 @@ status:
   - message: status_mlbc
     reason: LoadBalancerClassBound
     status: "True"
-    type: network.deckhouse.io/LoadBalancerClass
+    type: network.deckhouse.io/load-balancer-class
 `
 	service2 = `
 ---

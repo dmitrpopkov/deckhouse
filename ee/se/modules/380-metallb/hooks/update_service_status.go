@@ -29,21 +29,21 @@ var _ = sdk.RegisterFunc(&go_hook.HookConfig{
 }, handleL2LBServices)
 
 func applyL2LBServiceFilter(obj *unstructured.Unstructured) (go_hook.FilterResult, error) {
-	var l2lbservice SDNInternalL2LBService
+	var l2LBService SDNInternalL2LBService
 
-	err := sdk.FromUnstructured(obj, &l2lbservice)
+	err := sdk.FromUnstructured(obj, &l2LBService)
 	if err != nil {
 		return nil, err
 	}
 
 	ip := "unknown"
-	if len(l2lbservice.Status.LoadBalancer.Ingress) > 0 {
-		ip = l2lbservice.Status.LoadBalancer.Ingress[0].IP
+	if len(l2LBService.Status.LoadBalancer.Ingress) > 0 {
+		ip = l2LBService.Status.LoadBalancer.Ingress[0].IP
 	}
 
 	return L2LBServiceStatusInfo{
-		Namespace: l2lbservice.Spec.ServiceRef.Namespace,
-		Name:      l2lbservice.Spec.ServiceRef.Name,
+		Namespace: l2LBService.Spec.ServiceRef.Namespace,
+		Name:      l2LBService.Spec.ServiceRef.Name,
 		IP:        ip,
 	}, nil
 }

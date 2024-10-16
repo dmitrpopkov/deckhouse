@@ -45,7 +45,7 @@ func discoveryServicesForMigrate(_ *go_hook.HookInput, dc dependency.Container) 
 		// Has MLBC status?
 		statusExists := false
 		for _, condition := range service.Status.Conditions {
-			if condition.Type == "network.deckhouse.io/LoadBalancerClass" {
+			if condition.Type == "network.deckhouse.io/load-balancer-class" {
 				statusExists = true
 				break
 			}

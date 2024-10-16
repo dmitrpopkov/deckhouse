@@ -58,7 +58,7 @@ status:
   - message: status_mlbc
     reason: LoadBalancerClassBound
     status: "True"
-    type: network.deckhouse.io/LoadBalancerClass
+    type: network.deckhouse.io/load-balancer-class
 ---
 apiVersion: v1
 kind: Service
@@ -304,7 +304,7 @@ spec:
 		"message": "config_mlbc",
 		"reason": "LoadBalancerClassBound",
 		"status": "True",
-		"type": "network.deckhouse.io/LoadBalancerClass"
+		"type": "network.deckhouse.io/load-balancer-class"
 	}
 ]}`))
 
@@ -314,7 +314,7 @@ spec:
 		"message": "default_mlbc",
 		"reason": "LoadBalancerClassBound",
 		"status": "True",
-		"type": "network.deckhouse.io/LoadBalancerClass"
+		"type": "network.deckhouse.io/load-balancer-class"
 	}
 ]}`))
 		})

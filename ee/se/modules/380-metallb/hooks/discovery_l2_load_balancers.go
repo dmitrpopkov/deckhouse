@@ -42,7 +42,7 @@ var _ = sdk.RegisterFunc(&go_hook.HookConfig{
 			FilterFunc: applyServiceFilter,
 		},
 	},
-}, handleLoadBalancers)
+}, handleL2LoadBalancers)
 
 func applyNodeFilter(obj *unstructured.Unstructured) (go_hook.FilterResult, error) {
 	var node v1.Node
@@ -100,7 +100,7 @@ func applyServiceFilter(obj *unstructured.Unstructured) (go_hook.FilterResult, e
 
 	var assignedLoadBalancerClass string
 	for _, condition := range service.Status.Conditions {
-		if condition.Type == "network.deckhouse.io/LoadBalancerClass" {
+		if condition.Type == "network.deckhouse.io/load-balancer-class" {
 			assignedLoadBalancerClass = condition.Message
 			continue
 		}
@@ -129,29 +129,29 @@ func applyServiceFilter(obj *unstructured.Unstructured) (go_hook.FilterResult, e
 }
 
 func applyMetalLoadBalancerClassFilter(obj *unstructured.Unstructured) (go_hook.FilterResult, error) {
-	var metalloadbalancerclass MetalLoadBalancerClass
+	var metalLoadBalancerClass MetalLoadBalancerClass
 
-	err := sdk.FromUnstructured(obj, &metalloadbalancerclass)
+	err := sdk.FromUnstructured(obj, &metalLoadBalancerClass)
 	if err != nil {
 		return nil, err
 	}
 
 	interfaces := []string{}
-	if len(metalloadbalancerclass.Spec.L2.Interfaces) > 0 {
-		interfaces = metalloadbalancerclass.Spec.L2.Interfaces
+	if len(metalLoadBalancerClass.Spec.L2.Interfaces) > 0 {
+		interfaces = metalLoadBalancerClass.Spec.L2.Interfaces
 	}
 
 	return MetalLoadBalancerClassInfo{
-		Name:         metalloadbalancerclass.Name,
-		AddressPool:  metalloadbalancerclass.Spec.AddressPool,
+		Name:         metalLoadBalancerClass.Name,
+		AddressPool:  metalLoadBalancerClass.Spec.AddressPool,
 		Interfaces:   interfaces,
-		NodeSelector: metalloadbalancerclass.Spec.NodeSelector,
-		IsDefault:    metalloadbalancerclass.Spec.IsDefault,
+		NodeSelector: metalLoadBalancerClass.Spec.NodeSelector,
+		IsDefault:    metalLoadBalancerClass.Spec.IsDefault,
 	}, nil
 }
 
-func handleLoadBalancers(input *go_hook.HookInput) error {
-	l2lbservices := make([]L2LBServiceConfig, 0, 4)
+func handleL2LoadBalancers(input *go_hook.HookInput) error {
+	l2LBServices := make([]L2LBServiceConfig, 0, 4)
 	metalLoadBalancerClasses, mlbcDefaultName := makeMLBCMapFromSnapshot(input.Snapshots["mlbc"])
 
 	for _, serviceSnap := range input.Snapshots["services"] {
@@ -162,6 +162,7 @@ func handleLoadBalancers(input *go_hook.HookInput) error {
 
 		var mlbc MetalLoadBalancerClassInfo
 		var needPatchService bool
+		// TODO: Refactor this block
 		if mlbc, ok = metalLoadBalancerClasses[service.AssignedLoadBalancerClass]; ok {
 			needPatchService = false
 		} else if service.AssignedLoadBalancerClass != "" {
@@ -180,7 +181,7 @@ func handleLoadBalancers(input *go_hook.HookInput) error {
 				"status": map[string]interface{}{
 					"conditions": []metav1.Condition{
 						{
-							Type:    "network.deckhouse.io/LoadBalancerClass",
+							Type:    "network.deckhouse.io/load-balancer-class",
 							Message: mlbc.Name,
 							Status:  "True",
 							Reason:  "LoadBalancerClassBound",
@@ -203,8 +204,8 @@ func handleLoadBalancers(input *go_hook.HookInput) error {
 			continue
 		}
 
-		DesiredIPsCount := len(service.DesiredIPs)
-		isMigrateService := DesiredIPsCount > 0
+		desiredIPsCount := len(service.DesiredIPs)
+		desiredIPsExists := desiredIPsCount > 0
 		for i := 0; i < service.ExternalIPsCount; i++ {
 			nodeIndex := i % len(nodes)
 			config := L2LBServiceConfig{
@@ -220,33 +221,33 @@ func handleLoadBalancers(input *go_hook.HookInput) error {
 				Ports:                      service.Ports,
 				Selector:                   service.Selector,
 				MetalLoadBalancerClassName: mlbc.Name,
-				LbAllowSharedIP:            service.LbAllowSharedIP, // FIXME: The same for each l2lbservices?
+				LbAllowSharedIP:            service.LbAllowSharedIP, // TODO: Naming
 			}
-			if isMigrateService && i < DesiredIPsCount {
+			if desiredIPsExists && i < desiredIPsCount {
 				config.DesiredIP = service.DesiredIPs[i]
 			}
-			l2lbservices = append(l2lbservices, config)
+			l2LBServices = append(l2LBServices, config)
 		}
 	}
 
 	// L2 Load Balancers are sorted before saving
-	l2loadbalancersInternal := make([]MetalLoadBalancerClassInfo, 0, len(metalLoadBalancerClasses))
+	l2LoadBalancersInternal := make([]MetalLoadBalancerClassInfo, 0, len(metalLoadBalancerClasses))
 	for _, value := range metalLoadBalancerClasses {
-		l2loadbalancersInternal = append(l2loadbalancersInternal, value)
+		l2LoadBalancersInternal = append(l2LoadBalancersInternal, value)
 	}
-	sort.Slice(l2loadbalancersInternal, func(i, j int) bool {
-		return l2loadbalancersInternal[i].Name < l2loadbalancersInternal[j].Name
+	sort.Slice(l2LoadBalancersInternal, func(i, j int) bool {
+		return l2LoadBalancersInternal[i].Name < l2LoadBalancersInternal[j].Name
 	})
-	input.Values.Set("metallb.internal.l2loadbalancers", l2loadbalancersInternal)
+	input.Values.Set("metallb.internal.l2loadbalancers", l2LoadBalancersInternal)
 
 	// L2 Load Balancer Services are sorted by Namespace and then Name before saving
-	sort.Slice(l2lbservices, func(i, j int) bool {
-		if l2lbservices[i].Namespace == l2lbservices[j].Namespace {
-			return l2lbservices[i].Name < l2lbservices[j].Name
+	sort.Slice(l2LBServices, func(i, j int) bool {
+		if l2LBServices[i].Namespace == l2LBServices[j].Namespace {
+			return l2LBServices[i].Name < l2LBServices[j].Name
 		}
-		return l2lbservices[i].Namespace < l2lbservices[j].Namespace
+		return l2LBServices[i].Namespace < l2LBServices[j].Namespace
 	})
-	input.Values.Set("metallb.internal.l2lbservices", l2lbservices)
+	input.Values.Set("metallb.internal.l2lbservices", l2LBServices)
 	return nil
 }
 

@@ -1,4 +1,4 @@
-{{- range $ipaddressPool := .Values.metallb.addressPools }}
+{{- range $ipaddressPool := .Values.metallb.addressPools }} # TODO: enable for BGP only
 ---
 apiVersion: metallb.io/v1beta1
 kind: IPAddressPool

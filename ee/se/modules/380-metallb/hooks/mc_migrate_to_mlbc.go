@@ -37,7 +37,7 @@ func applyModuleConfigFilter(obj *unstructured.Unstructured) (go_hook.FilterResu
 	mc := &v1alpha1.ModuleConfig{}
 	err := sdk.FromUnstructured(obj, mc)
 	if err != nil {
-		return nil, fmt.Errorf("cannot convert metallb moduleconfig: %v", err)
+		return nil, fmt.Errorf("cannot convert Metallb ModuleConfig: %v", err)
 	}
 
 	if mc.Spec.Version == 1 {

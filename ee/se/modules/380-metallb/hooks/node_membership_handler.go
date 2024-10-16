@@ -53,17 +53,17 @@ func applyNodeLabelFilter(obj *unstructured.Unstructured) (go_hook.FilterResult,
 }
 
 func applyMetalLoadBalancerClassLabelFilter(obj *unstructured.Unstructured) (go_hook.FilterResult, error) {
-	var metalloadbalancerclass MetalLoadBalancerClass
+	var metalLoadBalancerClass MetalLoadBalancerClass
 
-	err := sdk.FromUnstructured(obj, &metalloadbalancerclass)
+	err := sdk.FromUnstructured(obj, &metalLoadBalancerClass)
 	if err != nil {
 		return nil, err
 	}
 
 	return MetalLoadBalancerClassInfo{
-		Name:         metalloadbalancerclass.Name,
-		AddressPool:  metalloadbalancerclass.Spec.AddressPool,
-		NodeSelector: metalloadbalancerclass.Spec.NodeSelector,
+		Name:         metalLoadBalancerClass.Name,
+		AddressPool:  metalLoadBalancerClass.Spec.AddressPool,
+		NodeSelector: metalLoadBalancerClass.Spec.NodeSelector,
 	}, nil
 }
 
@@ -85,9 +85,9 @@ func handleLabelsUpdate(input *go_hook.HookInput) error {
 		desiredLabeledNodes = appendUniq(desiredLabeledNodes, nodes...)
 	}
 
-	nodesToUnlabel, nodesToLabel := calcDifferenceForNodes(actualLabeledNodes, desiredLabeledNodes)
+	nodesToUnLabel, nodesToLabel := calcDifferenceForNodes(actualLabeledNodes, desiredLabeledNodes)
 
-	for _, node := range nodesToUnlabel {
+	for _, node := range nodesToUnLabel {
 		labelsPatch := map[string]interface{}{
 			"metadata": map[string]interface{}{
 				"labels": map[string]interface{}{
@@ -159,7 +159,7 @@ func nodeMatchesNodeSelector(nodeLabels, selectorLabels map[string]string) bool 
 }
 
 func calcDifferenceForNodes(nodesLabeled, nodesNeeded []NodeInfo) ([]NodeInfo, []NodeInfo) {
-	nodesToUnlabel := []NodeInfo{}
+	nodesToUnLabel := []NodeInfo{}
 	nodesToLabel := []NodeInfo{}
 
 	actualLabeledNodesMap := map[string]struct{}{}
@@ -173,7 +173,7 @@ func calcDifferenceForNodes(nodesLabeled, nodesNeeded []NodeInfo) ([]NodeInfo, [
 	}
 	for _, node := range nodesLabeled {
 		if _, exists := desiredLabeledNodesMap[node.Name]; !exists {
-			nodesToUnlabel = append(nodesToUnlabel, node)
+			nodesToUnLabel = append(nodesToUnLabel, node)
 		}
 	}
 
@@ -182,7 +182,7 @@ func calcDifferenceForNodes(nodesLabeled, nodesNeeded []NodeInfo) ([]NodeInfo, [
 			nodesToLabel = append(nodesToLabel, node)
 		}
 	}
-	return nodesToUnlabel, nodesToLabel
+	return nodesToUnLabel, nodesToLabel
 }
 
 func appendUniq(existingNodes []NodeInfo, nodes ...NodeInfo) []NodeInfo {

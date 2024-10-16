@@ -62,7 +62,7 @@ metadata:
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: d8:metallb:l2lb:ontroller
+  name: d8:metallb:l2lb:controller
 subjects:
   - kind: ServiceAccount
     name: l2lb-controller

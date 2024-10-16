@@ -53,7 +53,7 @@ spec:
 apiVersion: network.deckhouse.io/v1alpha1
 kind: MetalLoadBalancerClass
 metadata:
-  name: defaultingress
+  name: default-ingress
 spec:
   isDefault: true
   type: L2
