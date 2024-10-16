@@ -106,5 +106,6 @@ x-examples:
           internalTrafficPolicy: Cluster
           selector:
             app: nginx
-          loadBalancerName: config_mlbc
+          mlbcName: config_mlbc
           desiredIP: "30.30.30.30"
+          lbAllowSharedIP: "60.60.60.60"
