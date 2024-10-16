@@ -84,7 +84,7 @@ rules:
       - extensions.istio.io
       - authentication.istio.io
     resources:
-      - ""
+      - "*"
     verbs:
       - get
       - list
@@ -104,7 +104,7 @@ rules:
       - networking.x-k8s.io
       - gateway.networking.k8s.io
     resources:
-      - ""
+      - "*"
     verbs:
       - get
       - watch
