@@ -76,14 +76,6 @@ rules:
       - delete
       - deletecollection
   - apiGroups:
-      - authentication.istio.io
-    resources:
-      - "*"
-    verbs:
-      - get
-      - list
-      - watch
-  - apiGroups:
       - config.istio.io
       - networking.istio.io
       - rbac.istio.io
@@ -114,6 +106,9 @@ rules:
     resources:
       - "*"
     verbs:
+      - get
+      - watch
+      - list
       - update
       - patch
   - apiGroups:
@@ -177,8 +172,8 @@ rules:
       - gateways
     verbs:
       - get
-      - list
       - watch
+      - list
   - apiGroups:
       - multicluster.x-k8s.io
     resources:
