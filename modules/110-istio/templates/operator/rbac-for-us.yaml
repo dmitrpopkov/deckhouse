@@ -142,6 +142,7 @@ rules:
       - namespaces
       - endpoints
       - replicationcontrollers
+      - secrets
     verbs:
       - get
       - list
@@ -168,6 +169,7 @@ rules:
       - watch
   - apiGroups:
       - gateway.networking.k8s.io
+      - networking.x-k8s.io
     resources:
       - gateways
     verbs:
