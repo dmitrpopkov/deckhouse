@@ -117,7 +117,9 @@ rules:
     resources:
       - ingresses/status
     verbs:
-      - "*"
+      - get
+      - watch
+      - list
   - apiGroups:
       - ""
     resources:
@@ -300,7 +302,6 @@ rules:
       - get
       - list
       - watch
-      - update
       - patch
       - create
   - apiGroups:
