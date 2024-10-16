@@ -1,5 +1,29 @@
 {{- define "istiod_rules_v-1-21" -}}
 - apiGroups:
+  - apps
+  resources:
+  - deployments
+  verbs:
+  - get
+  - list
+  - watch
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - ""
+  resources:
+  - services
+  - serviceaccounts
+  verbs:
+  - get
+  - watch
+  - list
+  - update
+  - patch
+  - create
+  - delete
+- apiGroups:
   - admissionregistration.k8s.io
   resources:
   - mutatingwebhookconfigurations
@@ -96,7 +120,6 @@
   resources:
   - pods
   - nodes
-  - services
   - namespaces
   - endpoints
   verbs:
