@@ -205,7 +205,7 @@ func handleL2LoadBalancers(input *go_hook.HookInput) error {
 		}
 
 		desiredIPsCount := len(service.DesiredIPs)
-		desiredIPsExists := desiredIPsCount > 0
+		desiredIPsExist := desiredIPsCount > 0
 		for i := 0; i < service.ExternalIPsCount; i++ {
 			nodeIndex := i % len(nodes)
 			config := L2LBServiceConfig{
@@ -223,7 +223,7 @@ func handleL2LoadBalancers(input *go_hook.HookInput) error {
 				MetalLoadBalancerClassName: mlbc.Name,
 				LbAllowSharedIP:            service.LbAllowSharedIP, // TODO: Naming
 			}
-			if desiredIPsExists && i < desiredIPsCount {
+			if desiredIPsExist && i < desiredIPsCount {
 				config.DesiredIP = service.DesiredIPs[i]
 			}
 			l2LBServices = append(l2LBServices, config)
