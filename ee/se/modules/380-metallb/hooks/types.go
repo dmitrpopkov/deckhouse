@@ -38,7 +38,7 @@ type ServiceInfo struct {
 	InternalTrafficPolicy     v1.ServiceInternalTrafficPolicy
 	Selector                  map[string]string
 	DesiredIPs                []string
-	LbAllowSharedIP           string
+	LBAllowSharedIP           string
 }
 
 type L2LBServiceStatusInfo struct {
@@ -62,7 +62,7 @@ type L2LBServiceConfig struct {
 	Selector                   map[string]string               `json:"selector"`
 	MetalLoadBalancerClassName string                          `json:"mlbcName"`
 	DesiredIP                  string                          `json:"desiredIP"`
-	LbAllowSharedIP            string                          `json:"lbAllowSharedIP"`
+	LBAllowSharedIP            string                          `json:"lbAllowSharedIP"`
 }
 
 type MetalLoadBalancerClassInfo struct {

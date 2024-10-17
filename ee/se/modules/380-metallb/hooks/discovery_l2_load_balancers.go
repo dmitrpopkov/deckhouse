@@ -124,7 +124,7 @@ func applyServiceFilter(obj *unstructured.Unstructured) (go_hook.FilterResult, e
 		ClusterIP:                 service.Spec.ClusterIP,
 		PublishNotReadyAddresses:  service.Spec.PublishNotReadyAddresses,
 		DesiredIPs:                desiredIPs,
-		LbAllowSharedIP:           lbAllowSharedIP,
+		LBAllowSharedIP:           lbAllowSharedIP,
 	}, nil
 }
 
@@ -221,7 +221,7 @@ func handleL2LoadBalancers(input *go_hook.HookInput) error {
 				Ports:                      service.Ports,
 				Selector:                   service.Selector,
 				MetalLoadBalancerClassName: mlbc.Name,
-				LbAllowSharedIP:            service.LbAllowSharedIP, // TODO: Naming
+				LBAllowSharedIP:            service.LBAllowSharedIP,
 			}
 			if desiredIPsExist && i < desiredIPsCount {
 				config.DesiredIP = service.DesiredIPs[i]
