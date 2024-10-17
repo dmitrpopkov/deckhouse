@@ -64,7 +64,7 @@ func discoveryServicesForMigrate(input *go_hook.HookInput, dc dependency.Contain
 			input.LogEntry.Infoln("MMMLB: First annotation")
 			continue
 		}
-		if _, ok := service.ObjectMeta.Annotations["metallb.universe.tf/address-pool"]; !ok {
+		if _, ok := service.ObjectMeta.Annotations["metallb.universe.tf/ip-allocated-from-pool"]; !ok {
 			input.LogEntry.Infoln("MMMLB: Second annotation")
 			continue
 		}
