@@ -170,13 +170,15 @@ func handleL2LoadBalancers(input *go_hook.HookInput) error {
 			// Else use the MLBC that exists in the cluster (add to status)
 			mlbcForUse = mlbcTemp
 		}
-		if mlbcTemp, ok := mlbcMap[service.AssignedLoadBalancerClass]; ok {
-			// Else use the MLBC associated earlier
-			mlbcForUse = mlbcTemp
-			patchStatusInformation = false
-		} else if service.AssignedLoadBalancerClass != "" {
-			// MLBC is not among clustered MLBCs, but it is associated (in status)
-			continue
+		if service.AssignedLoadBalancerClass != "" {
+			if mlbcTemp, ok := mlbcMap[service.AssignedLoadBalancerClass]; ok {
+				// Else use the MLBC associated earlier
+				mlbcForUse = mlbcTemp
+				patchStatusInformation = false
+			} else {
+				// MLBC is not among clustered MLBCs, but it is associated (in status)
+				continue
+			}
 		}
 
 		if patchStatusInformation {
