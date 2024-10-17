@@ -24,7 +24,8 @@ var _ = sdk.RegisterFunc(&go_hook.HookConfig{
 	Queue:     "/modules/metallb/discovery-services",
 }, dependency.WithExternalDependencies(discoveryServicesForMigrate))
 
-func discoveryServicesForMigrate(_ *go_hook.HookInput, dc dependency.Container) error {
+func discoveryServicesForMigrate(input *go_hook.HookInput, dc dependency.Container) error {
+	input.LogEntry.Infoln("MMMLB: Start a hook")
 	k8sClient, err := dc.GetK8sClient()
 	if err != nil {
 		return err
@@ -36,9 +37,11 @@ func discoveryServicesForMigrate(_ *go_hook.HookInput, dc dependency.Container) 
 	if err != nil {
 		return nil
 	}
+	input.LogEntry.Infoln("MMMLB: Start a loop")
 	for _, service := range serviceList.Items {
 		// Is it not a Loadbalancer?
 		if service.Spec.Type != "LoadBalancer" {
+			input.LogEntry.Infof("MMMLB: service.Spec.Type=%v\n", service.Spec.Type)
 			continue
 		}
 
@@ -47,6 +50,7 @@ func discoveryServicesForMigrate(_ *go_hook.HookInput, dc dependency.Container) 
 		for _, condition := range service.Status.Conditions {
 			if condition.Type == "network.deckhouse.io/load-balancer-class" {
 				statusExists = true
+				input.LogEntry.Infof("MMMLB: condition.Type=%v\n", condition.Type)
 				break
 			}
 		}
@@ -56,12 +60,15 @@ func discoveryServicesForMigrate(_ *go_hook.HookInput, dc dependency.Container) 
 
 		// Has the annotations?
 		if _, ok := service.ObjectMeta.Annotations["network.deckhouse.io/l2-load-balancer-ips"]; ok {
+			input.LogEntry.Infoln("MMMLB: First annotation")
 			continue
 		}
 		if _, ok := service.ObjectMeta.Annotations["metallb.universe.tf/address-pool"]; !ok {
+			input.LogEntry.Infoln("MMMLB: Second annotation")
 			continue
 		}
 
+		input.LogEntry.Infoln("MMMLB: Patching!")
 		var sliceIPs []string
 		for _, ingress := range service.Status.LoadBalancer.Ingress {
 			sliceIPs = append(sliceIPs, ingress.IP)

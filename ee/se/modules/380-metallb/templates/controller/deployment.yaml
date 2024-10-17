@@ -1,4 +1,4 @@
-{{- define "controller_resources" }}
+{{- define "controller_resources" }} # TODO: enable for BGP only
 cpu: 10m
 memory: 30Mi
 {{- end }}
