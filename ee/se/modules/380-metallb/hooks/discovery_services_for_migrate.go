@@ -24,6 +24,7 @@ var _ = sdk.RegisterFunc(&go_hook.HookConfig{
 	Queue:     "/modules/metallb/discovery-services",
 }, dependency.WithExternalDependencies(discoveryServicesForMigrate))
 
+// TODO: Disable logging
 func discoveryServicesForMigrate(input *go_hook.HookInput, dc dependency.Container) error {
 	input.LogEntry.Infoln("MMMLB: Start a hook")
 	k8sClient, err := dc.GetK8sClient()
@@ -41,9 +42,9 @@ func discoveryServicesForMigrate(input *go_hook.HookInput, dc dependency.Contain
 	for _, service := range serviceList.Items {
 		// Is it not a Loadbalancer?
 		if service.Spec.Type != "LoadBalancer" {
-			input.LogEntry.Infof("MMMLB: service.Spec.Type=%v\n", service.Spec.Type)
 			continue
 		}
+		input.LogEntry.Infof("MMMLB: service.Spec.Type=%v\n", service.Spec.Type)
 
 		// Has MLBC status?
 		statusExists := false
