@@ -152,7 +152,7 @@ func applyMetalLoadBalancerClassFilter(obj *unstructured.Unstructured) (go_hook.
 
 func handleL2LoadBalancers(input *go_hook.HookInput) error {
 	l2LBServices := make([]L2LBServiceConfig, 0, 4)
-	metalLoadBalancerClasses, mlbcDefaultName := makeMLBCMapFromSnapshot(input.Snapshots["mlbc"])
+	mlbcMap, mlbcDefaultName := makeMLBCMapFromSnapshot(input.Snapshots["mlbc"])
 
 	for _, serviceSnap := range input.Snapshots["services"] {
 		service, ok := serviceSnap.(ServiceInfo)
@@ -160,29 +160,32 @@ func handleL2LoadBalancers(input *go_hook.HookInput) error {
 			continue
 		}
 
-		var mlbc MetalLoadBalancerClassInfo
-		var needPatchService bool
-		// TODO: Refactor this block
-		if mlbc, ok = metalLoadBalancerClasses[service.AssignedLoadBalancerClass]; ok {
-			needPatchService = false
+		patchStatusInformation := true
+		var mlbcForUse MetalLoadBalancerClassInfo
+		if mlbcTemp, ok := mlbcMap[mlbcDefaultName]; ok {
+			// Use default MLBC (add to status)
+			mlbcForUse = mlbcTemp
+		}
+		if mlbcTemp, ok := mlbcMap[service.LoadBalancerClass]; ok {
+			// Else use the MLBC that exists in the cluster (add to status)
+			mlbcForUse = mlbcTemp
+		}
+		if mlbcTemp, ok := mlbcMap[service.AssignedLoadBalancerClass]; ok {
+			// Else use the MLBC associated earlier
+			mlbcForUse = mlbcTemp
+			patchStatusInformation = false
 		} else if service.AssignedLoadBalancerClass != "" {
-			// AssignedLoadBalancerClass is missing from existing MetalLoadBalancerClasses
-			continue
-		} else if mlbc, ok = metalLoadBalancerClasses[service.LoadBalancerClass]; ok {
-			needPatchService = true
-		} else if mlbc, ok = metalLoadBalancerClasses[mlbcDefaultName]; ok {
-			needPatchService = true
-		} else {
+			// MLBC is not among clustered MLBCs, but it is associated (in status)
 			continue
 		}
 
-		if needPatchService {
+		if patchStatusInformation {
 			patch := map[string]interface{}{
 				"status": map[string]interface{}{
 					"conditions": []metav1.Condition{
 						{
 							Type:    "network.deckhouse.io/load-balancer-class",
-							Message: mlbc.Name,
+							Message: mlbcForUse.Name,
 							Status:  "True",
 							Reason:  "LoadBalancerClassBound",
 						},
@@ -198,7 +201,7 @@ func handleL2LoadBalancers(input *go_hook.HookInput) error {
 				object_patch.WithSubresource("/status"))
 		}
 
-		nodes := getNodesByMLBC(mlbc, input.Snapshots["nodes"])
+		nodes := getNodesByMLBC(mlbcForUse, input.Snapshots["nodes"])
 		if len(nodes) == 0 {
 			// There is no node that matches the specified node selector.
 			continue
@@ -209,7 +212,7 @@ func handleL2LoadBalancers(input *go_hook.HookInput) error {
 		for i := 0; i < service.ExternalIPsCount; i++ {
 			nodeIndex := i % len(nodes)
 			config := L2LBServiceConfig{
-				Name:                       fmt.Sprintf("%s-%s-%d", service.Name, mlbc.Name, i),
+				Name:                       fmt.Sprintf("%s-%s-%d", service.Name, mlbcForUse.Name, i),
 				Namespace:                  service.Namespace,
 				ServiceName:                service.Name,
 				ServiceNamespace:           service.Namespace,
@@ -220,7 +223,7 @@ func handleL2LoadBalancers(input *go_hook.HookInput) error {
 				ClusterIP:                  service.ClusterIP,
 				Ports:                      service.Ports,
 				Selector:                   service.Selector,
-				MetalLoadBalancerClassName: mlbc.Name,
+				MetalLoadBalancerClassName: mlbcForUse.Name,
 				LBAllowSharedIP:            service.LBAllowSharedIP,
 			}
 			if desiredIPsExist && i < desiredIPsCount {
@@ -231,8 +234,8 @@ func handleL2LoadBalancers(input *go_hook.HookInput) error {
 	}
 
 	// L2 Load Balancers are sorted before saving
-	l2LoadBalancersInternal := make([]MetalLoadBalancerClassInfo, 0, len(metalLoadBalancerClasses))
-	for _, value := range metalLoadBalancerClasses {
+	l2LoadBalancersInternal := make([]MetalLoadBalancerClassInfo, 0, len(mlbcMap))
+	for _, value := range mlbcMap {
 		l2LoadBalancersInternal = append(l2LoadBalancersInternal, value)
 	}
 	sort.Slice(l2LoadBalancersInternal, func(i, j int) bool {
