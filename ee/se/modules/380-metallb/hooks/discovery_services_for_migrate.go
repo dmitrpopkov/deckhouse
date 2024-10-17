@@ -59,24 +59,28 @@ func discoveryServicesForMigrate(input *go_hook.HookInput, dc dependency.Contain
 			continue
 		}
 
-		// Has the annotations?
+		// Has the annotation?
 		if _, ok := service.ObjectMeta.Annotations["network.deckhouse.io/l2-load-balancer-ips"]; ok {
 			input.LogEntry.Infoln("MMMLB: First annotation")
 			continue
 		}
-		if _, ok := service.ObjectMeta.Annotations["metallb.universe.tf/ip-allocated-from-pool"]; !ok {
-			input.LogEntry.Infoln("MMMLB: Second annotation")
+
+		// We need any of the annotations
+		_, ok1 := service.ObjectMeta.Annotations["metallb.universe.tf/ip-allocated-from-pool"]
+		_, ok2 := service.ObjectMeta.Annotations["metallb.universe.tf/address-pool"]
+		if !(ok1 || ok2) {
+			input.LogEntry.Infoln("MMMLB: Second annotations")
 			continue
 		}
 
 		input.LogEntry.Infoln("MMMLB: Patching!")
+		// Patch the service
 		var sliceIPs []string
 		for _, ingress := range service.Status.LoadBalancer.Ingress {
 			sliceIPs = append(sliceIPs, ingress.IP)
 		}
 		stringIPs := strings.Join(sliceIPs, ",")
 
-		// Patch the service
 		patch := map[string]interface{}{
 			"metadata": map[string]interface{}{
 				"annotations": map[string]interface{}{
