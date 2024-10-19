@@ -38,3 +38,5 @@ migrate -verbose -path ./pkg/db/migrations/server/ -database 'sqlite3://./db-emu
 
 go run ./cmd/upmeter/ start --origins=1 --db-path=./db-emu-server.sqlite
 ```
+
+Open the test page http://localhost:8091/, API is available at http://localhost:8091/api/status/range for inspection, e.g. http://localhost:8091/api/status/range?from=1722278000&to=1723278000&step=300&group=control-plane&probe=__total__
