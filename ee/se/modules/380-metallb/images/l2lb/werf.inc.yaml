@@ -12,9 +12,8 @@ shell:
     - apk add --no-cache git
     - mkdir -p /src
     - cd /src
-    - git clone -b v0.14.5 {{ $.SOURCE_REPO }}/metallb/metallb.git .
+    - git clone -b v0.14.8 {{ $.SOURCE_REPO }}/metallb/metallb.git .
     - git config --global user.email "builder@deckhouse.io"
-    - git checkout 7ebb4a2e569930bcbf303e95ff801240c4cb466b
     - mkdir ./api/v1alpha1
     - find /patches -name '*.patch' | sort | xargs git apply --verbose
     - export GO_VERSION=${GOLANG_VERSION}
