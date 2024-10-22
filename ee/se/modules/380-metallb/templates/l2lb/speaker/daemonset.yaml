@@ -62,6 +62,10 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: spec.nodeName
+            - name: METALLB_POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
             - name: METALLB_HOST
               valueFrom:
                 fieldRef:
@@ -72,11 +76,8 @@ spec:
                   fieldPath: status.podIP
             - name: METALLB_ML_LABELS
               value: app=speaker
-            # - name: METALLB_ML_SECRET_KEY
-            #   valueFrom:
-            #     secretKeyRef:
-            #       key: secretkey
-            #       name: memberlist
+            # - name: METALLB_ML_SECRET_KEY_PATH # TODO: To ask about this setting
+            #   value: "/etc/metallb_secret_key"
           image: {{ include "helm_lib_module_image" (list . "l2lbSpeaker") }}
           imagePullPolicy: IfNotPresent
           name: l2lb-speaker

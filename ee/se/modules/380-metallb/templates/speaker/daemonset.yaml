@@ -88,11 +88,6 @@ spec:
               value: "4218"
             # - name: METALLB_ML_SECRET_KEY_PATH # TODO: To ask about this setting
             #   value: "/etc/metallb_secret_key"
-            # - name: METALLB_ML_SECRET_KEY # FIXME: Delete this block
-            #   valueFrom:
-            #     secretKeyRef:
-            #       key: secretkey
-            #       name: memberlist
           image: {{ include "helm_lib_module_image" (list . "speaker") }}
           imagePullPolicy: IfNotPresent
           name: speaker
