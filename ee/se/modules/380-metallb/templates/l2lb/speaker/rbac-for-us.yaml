@@ -57,7 +57,8 @@ rules:
       - watch
       - patch
       - update
-  - apiGroups: "metallb.io"
+  - apiGroups:
+      - metallb.io
     resources:
       - servicel2statuses
       - servicel2statuses/status
