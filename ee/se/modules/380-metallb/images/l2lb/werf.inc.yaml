@@ -1,6 +1,6 @@
 ---
 artifact: {{ .ModuleName }}/l2lb-metallb-artifact
-from: {{ .Images.BASE_GOLANG_21_ALPINE }}
+from: {{ .Images.BASE_GOLANG_22_ALPINE }}
 git:
   - add: /{{ $.ModulePath }}modules/380-{{ $.ModuleName }}/images/{{ $.ImageName }}/patches
     to: /patches
