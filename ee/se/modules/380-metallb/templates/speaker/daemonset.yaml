@@ -58,6 +58,11 @@ spec:
   {{- end }}
       imagePullSecrets:
         - name: deckhouse-registry
+      volumes:
+        - name: memberlist
+          secret:
+            secretName: memberlist
+            defaultMode: 420
       containers:
         - args:
             - --host=127.0.0.1
@@ -86,8 +91,8 @@ spec:
               value: app=speaker
             - name: METALLB_ML_BIND_PORT
               value: "4218"
-            # - name: METALLB_ML_SECRET_KEY_PATH # TODO: To ask about this setting
-            #   value: "/etc/metallb_secret_key"
+            - name: METALLB_ML_SECRET_KEY_PATH
+              value: "/etc/ml_secret_key"
           image: {{ include "helm_lib_module_image" (list . "speaker") }}
           imagePullPolicy: IfNotPresent
           name: speaker
@@ -118,6 +123,9 @@ spec:
             timeoutSeconds: 1
             successThreshold: 1
             failureThreshold: 3
+          volumeMounts:
+          - name: memberlist
+            mountPath: "/etc/ml_secret_key"
           resources:
             requests:
               {{- include "helm_lib_module_ephemeral_storage_only_logs" . | nindent 14 }}
