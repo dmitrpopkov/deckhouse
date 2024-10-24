@@ -1,0 +1,185 @@
+kind: HuaweiCloudClusterConfiguration
+apiVersions:
+- apiVersion: deckhouse.io/v1
+  openAPISpec:
+    type: object
+    description: |
+      Describes the configuration of a cloud cluster in HuaweiCloud.
+
+      Used by the cloud provider if a cluster's control plane is hosted in the cloud.
+
+      Run the following command to change the configuration in a running cluster:
+
+      ```shell
+      kubectl -n d8-system exec -ti svc/deckhouse-leader -c deckhouse -- deckhouse-controller edit provider-cluster-configuration
+      ```
+    x-doc-search: |
+      ProviderClusterConfiguration
+    x-unsafe-rules: [deleteZones]
+    x-examples:
+      - apiVersion: deckhouse.io/v1
+        kind: HuaweiCloudClusterConfiguration
+        layout: Standard
+        sshPublicKey: "<SSH_PUBLIC_KEY>"
+        zones:
+          - eu-3a
+        standard:
+          externalNetworkName: "external-network"
+        provider:
+          domainName: '<DOMAIN_NAME>'
+          region: 'eu-3'
+          accessKey: '<USERNAME>'
+          secretKey: '<PASSWORD>'
+        masterNodeGroup:
+          replicas: 1
+          instanceClass:
+            rootDiskSize: 50
+            imageName: "debian-11-genericcloud-amd64-20220911-1135"
+        nodeGroups:
+          - name: front
+            replicas: 2
+            instanceClass:
+              flavorName: m1.large
+              imageName: "debian-11-genericcloud-amd64-20220911-1135"
+              rootDiskSize: 50
+              configDrive: false
+              floatingIPPools:
+                - public
+                - shared
+              additionalSecurityGroups:
+                - sec_group_1
+                - sec_group_2
+            zones:
+              - eu-1a
+              - eu-1b
+    additionalProperties: false
+    required: [apiVersion, kind, layout, provider, sshPublicKey, masterNodeGroup]
+    properties:
+      apiVersion:
+        type: string
+        enum: [deckhouse.io/v1]
+      kind:
+        type: string
+        enum: [HuaweiCloudClusterConfiguration]
+      sshPublicKey:
+        type: string
+        description: |
+          A public key for accessing nodes.
+      zones:
+        type: array
+        items:
+          type: string
+        minItems: 1
+        uniqueItems: true
+        description: |
+          The globally restricted set of zones that this Cloud Provider works with.
+        x-doc-required: false
+      masterNodeGroup:
+        description: |
+          The definition of the master's NodeGroup.
+
+          > Caution! After changing the parameters of the section, you need to run `dhctl converge` for the changes to take effect.
+        x-doc-required: true
+        x-unsafe-rules: [updateMasterImage]
+        additionalProperties: false
+        required: [replicas, instanceClass]
+        properties:
+          replicas:
+            type: integer
+            minimum: 1
+            description: |
+              The number of master nodes to create. It is important to have an odd number of masters to ensure a quorum.
+            x-unsafe-rules: [updateReplicas]
+          instanceClass:
+            description: |
+              Partial contents of the fields of the [HuaweiCloudInstanceClass](https://deckhouse.io/products/kubernetes-platform/documentation/v1/modules/030-cloud-provider-huaweicloud/cr.html#huaweicloudinstanceclass).
+            type: object
+            required: [imageName]
+            additionalProperties: false
+            properties:
+              flavorName: &instanceClassFlavorName
+                type: string
+                description: |
+                  Flavor of OpenStack servers.
+
+                  Get a list of all available flavors: `openstack flavor list`.
+
+                  For all non-master nodes it is advisable to use flavor's with a local disk. If cloud provider supports local disks they are usually faster and cheaper. The disadvantage of using such flavors is the inability to migrate nodes between hypervisors.
+
+                  Flavor create example: `openstack flavor create c4m8d50 --ram 8192 --disk 50 --vcpus 4`
+                x-doc-required: true
+              imageName: &instanceClassImageName
+                description: |
+                  Image to use while provisioning HuaweiCloud servers.
+
+                  Use this command to get a list of available images: `huaweicloud image list`.
+
+                  The list of OS and their versions supported by Deckhouse can be found in the [documentation](https://deckhouse.ru/products/kubernetes-platform/documentation/v1/supported_versions.html) (take into account the Deckhouse version used).
+                type: string
+                x-doc-required: true
+              rootDiskSize: &instanceClassRootDiskSize
+                description: |
+                  The size of a root disk (in gigabytes).
+
+                  This parameter also has influence on type of volume that will be used for root disk; the ["How to use rootDiskSize and when it is preferred"](https://deckhouse.io/products/kubernetes-platform/documentation/v1/modules/030-cloud-provider-huaweicloud/faq.html#how-to-use-rootdisksize-and-when-it-is-preferred) section describes how to use it.
+                type: integer
+              etcdDiskSizeGb:
+                description: |
+                  Etcd disk size in gigabytes.
+                example: 10
+                default: 10
+                type: integer
+      layout:
+        description: |
+          The way resources are located in the cloud.
+
+          Read [more](https://deckhouse.io/products/kubernetes-platform/documentation/v1/modules/030-cloud-provider-huaweicloud/layouts.html) about possible provider layouts.
+        type: string
+        x-unsafe: true
+      standard:
+        type: object
+        description: |
+          Settings for the [`Standard`](https://deckhouse.io/products/kubernetes-platform/documentation/v1/modules/030-cloud-provider-huaweicloud/layouts.html#standard) layout.
+        additionalProperties: false
+        properties:
+          podNetworkMode:
+            description: |
+              Sets the traffic mode for the network that the pods use to communicate with each other (usually, it is an internal network; however, there can be exceptions):
+              * `DirectRouting` — nodes are directly routed (SecurityGroups are disabled in this mode).
+              * `VXLAN` — direct routing does NOT work between nodes, VXLAN must be used (SecurityGroups are disabled in this mode).
+
+              > **Caution!** After changing this parameter, you need to run `dhctl converge`.
+
+              > **Caution!** All cluster nodes must be rebooted after switching work mode from/to VXLAN.
+            type: string
+            enum: [VXLAN, DirectRouting]
+            default: VXLAN
+      provider:
+        description: |
+          Contains [settings to connect](https://deckhouse.io/products/kubernetes-platform/documentation/v1/modules/030-cloud-provider-huaweicloud/environment.html) to the HuaweiCloud API.
+
+          These settings are the same as those in the `connection` field of the [cloud-provider-huaweicloud](https://deckhouse.io/products/kubernetes-platform/documentation/v1/modules/030-cloud-provider-huaweicloud/configuration.html#parameters) module.
+        type: object
+        additionalProperties: false
+        properties:
+          authURL:
+            type: string
+            description: |
+              An HuaweiCloud Identity API URL.
+          domainName:
+            type: string
+            description: |
+              The domain name.
+          region:
+            type: string
+            description: |
+              The HuaweiCloud region where the cluster will be deployed.
+            x-unsafe: true
+          accessKey:
+            type: string
+            description: |
+              The name of the user that has full project privileges.
+          secretKey:
+            type: string
+            description: |
+              The user's password.
