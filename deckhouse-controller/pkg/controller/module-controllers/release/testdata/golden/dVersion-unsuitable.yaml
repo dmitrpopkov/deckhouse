@@ -7,7 +7,7 @@ metadata:
   creationTimestamp: null
   finalizers:
   - modules.deckhouse.io/release-exists
-  name: foxtrot-kube-suitable
+  name: foxtrot-unsuitable
   resourceVersion: "999"
 spec:
   registry:
@@ -20,46 +20,44 @@ status:
   message: ""
   moduleErrors: []
   modules:
-  - name: mcplay-kube-suitable
-    policy: foxtrot-alpha-kube-suitable
-  - name: parca-kube-suitable
-    policy: foxtrot-alpha-kube-suitable
+  - name: mcplay-unsuitable
+    policy: foxtrot-alpha-unsuitable
+  - name: parca-unsuitable
+    policy: foxtrot-alpha-unsuitable
   modulesCount: 2
   syncTime: "2024-05-03T21:05:05Z"
 ---
 apiVersion: deckhouse.io/v1alpha1
 kind: ModuleRelease
 metadata:
-  annotations:
-    release.deckhouse.io/notified: "false"
   creationTimestamp: null
   labels:
-    module: parca-kube-suitable
-    modules.deckhouse.io/update-policy: foxtrot-alpha-kube-suitable
+    module: parca-unsuitable
+    modules.deckhouse.io/update-policy: foxtrot-alpha-unsuitable
     release-checksum: 98d00f741c99e06e6c6c4d18b763c550
-    source: foxtrot-kube-suitable
-  name: parca-v1.4.3-kube-suitable
+    source: foxtrot-unsuitable
+  name: parca-v1.4.3-unsuitable
   ownerReferences:
   - apiVersion: deckhouse.io/v1alpha1
     controller: true
     kind: ModuleSource
-    name: foxtrot-kube-suitable
+    name: foxtrot-unsuitable
     uid: 71d2300f-700b-452a-896a-6a3805f9cef7
-  resourceVersion: "1002"
+  resourceVersion: "1000"
 spec:
   changelog:
     features:
     - Bump parca version
-  moduleName: parca-kube-suitable
+  moduleName: parca-unsuitable
   requirements:
-    deckhouse: < v1.63.0
-    kubernetes: < 1.28.11
+    deckhouse: '> v1.63.0'
   version: 1.4.3
   weight: 900
 status:
   approved: false
-  message: ""
-  phase: Deployed
-  pullDuration: 9m15s
+  message: 'requirements are not satisfied: current deckhouse version is not suitable:
+    1.0.0 is less than or equal to v1.63.0'
+  phase: Pending
+  pullDuration: 0s
   size: 0
   transitionTime: "2019-10-17T15:33:00Z"
