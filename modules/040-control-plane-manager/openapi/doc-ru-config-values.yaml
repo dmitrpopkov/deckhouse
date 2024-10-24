@@ -9,14 +9,14 @@ properties:
         properties:
           issuer:
             description: |
-              Издатель ServiceAccount'ов. Это URL API-сервера. Значения этого поля используются как `iss` claim токена и для проверки JWT-токенов ServiceAccount.
+              Список API дополнительных издателей токенов ServiceAccount'ов, которые нужно включить при создании таких токенов. Это URL API-сервера. Значения этого поля используются как `iss` claim токена и для проверки JWT-токенов ServiceAccount.
 
               **Обратите внимание**, что все поды в кластере, использующие токены ServiceAccount, должны быть перезапущены при изменении этой опции.
           additionalAPIAudiences:
             description: |
               Список дополнительных API audience'ов, которые нужно добавить при создании токенов ServiceAccount.
               audience по умолчанию, автоматически генерируются на основе шаблона https://kubernetes.default.svc.${clusterDomain}, например, https://kubernetes.default.svc.cluster.local.
-              Аутентификатор токенов ServiceAccount ироверяет, что токены, использованные с API, привязаны как минимум к одной из этих audiences.
+              Аутентификатор токенов ServiceAccount проверяет, что токены, использованные с API, привязаны как минимум к одной из этих audiences.
               Этот вариант полезен при переходе от одного API issuer к другому.
           additionalAPIIssuers:
             description: |
@@ -26,9 +26,9 @@ properties:
               Этот вариант полезен при переходе от одного API issuer к другому.
       admissionPlugins:
         description: |
-          Список включенных дополнительных [admission plugin'ов](https://kubernetes.io/docs/reference/access-authn-authz/admission-controllers).
+          Список включенных дополнительных [admission-плагинов](https://kubernetes.io/docs/reference/access-authn-authz/admission-controllers).
 
-          **Обратите внимание**, что, помимо включенных по умолчанию в Kubernetes admission plugin'ов, также всегда включены (без возможности отключения) следующие admission plugin'ы:
+          **Обратите внимание**, что, помимо включенных по умолчанию в Kubernetes admission-плагинов, также всегда включены (без возможности отключения) следующие admission-плагины:
           - `ExtendedResourceToleration`;
           - `PodNodeSelector`;
           - `PodTolerationRestriction`;
@@ -44,7 +44,7 @@ properties:
               cacheSize: 2000
             ```
 
-          > Admission plugin `PodNodeSelector` [не требует](https://github.com/kubernetes/kubernetes/blob/f0ea54070bec90dd829b7054117d670f9f90839f/plugin/pkg/admission/podnodeselector/admission.go#L74-L97) указания глобальной конфигурации, он использует только аннотации на пространстве имен (namespace'ах).
+          > Admission-плагин `PodNodeSelector` [не требует](https://github.com/kubernetes/kubernetes/blob/f0ea54070bec90dd829b7054117d670f9f90839f/plugin/pkg/admission/podnodeselector/admission.go#L74-L97) указания глобальной конфигурации, он использует только аннотации на пространстве имен (namespace'ах).
       bindToWildcard:
         description: |
           Прослушивание на `0.0.0.0`.
