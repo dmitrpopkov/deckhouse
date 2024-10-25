@@ -47,7 +47,7 @@ resource "aws_subnet" "kube_public" {
     Name                                       = "${local.prefix}-public-${count.index}"
     "kubernetes.io/cluster/${var.clusterUUID}" = "shared"
     "kubernetes.io/cluster/${local.prefix}"    = "shared"
-    "kubernetes.io/role/elb"                   = "1"
+    "kubernetes.io/role/elb"                   = "2"
   })
 }
 
