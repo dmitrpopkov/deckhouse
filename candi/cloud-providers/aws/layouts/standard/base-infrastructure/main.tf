@@ -54,7 +54,6 @@ resource "aws_subnet" "kube_public" {
     Name                                       = "${local.prefix}-public-${count.index}"
     "kubernetes.io/cluster/${var.clusterUUID}" = "shared"
     "kubernetes.io/cluster/${local.prefix}"    = "shared"
-    "kubernetes.io/role/elb"                   = "2"
   })
 }
 
@@ -69,7 +68,6 @@ resource "aws_subnet" "kube_internal" {
     Name                                       = "${local.prefix}-internal-${count.index}"
     "kubernetes.io/cluster/${var.clusterUUID}" = "shared"
     "kubernetes.io/cluster/${local.prefix}"    = "shared"
-    "kubernetes.io/role/internal-elb"          = "2"
   })
 }
 
