@@ -67,6 +67,8 @@ type L2LBServiceConfig struct {
 
 type MetalLoadBalancerClassInfo struct {
 	Name         string            `json:"name"`
+	Labels       map[string]string `json:"labels,omitempty"`
+	Annotations  map[string]string `json:"annotations,omitempty"`
 	AddressPool  []string          `json:"addressPool"`
 	Interfaces   []string          `json:"interfaces"`
 	NodeSelector map[string]string `json:"nodeSelector"`
@@ -180,6 +182,11 @@ type IPAddressPool struct {
 	Status IPAddressPoolStatus `json:"status,omitempty"`
 }
 
+type IPAddressPoolInfo struct {
+	Name      string
+	Addresses []string
+}
+
 type IPAddressPoolSpec struct {
 	Addresses     []string           `json:"addresses"`
 	AutoAssign    *bool              `json:"autoAssign,omitempty"`
@@ -198,6 +205,7 @@ type IPAddressPoolStatus struct {
 }
 
 type L2AdvertisementInfo struct {
+	Name           string
 	IPAddressPools []string
 	NodeSelectors  []metav1.LabelSelector
 	Namespace      string

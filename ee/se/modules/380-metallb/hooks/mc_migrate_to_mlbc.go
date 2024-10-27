@@ -39,12 +39,12 @@ var _ = sdk.RegisterFunc(&go_hook.HookConfig{
 			},
 			FilterFunc: applyL2AdvertisementFilter,
 		},
-		// {
-		// 	Name:       "ipaddresspools",
-		// 	ApiVersion: "metallb.io/v1beta1",
-		// 	Kind:       "IPAddressPool",
-		// 	FilterFunc: applyIPAddressPoolFilter,
-		// },
+		{
+			Name:       "ipaddresspools",
+			ApiVersion: "metallb.io/v1beta1",
+			Kind:       "IPAddressPool",
+			FilterFunc: applyIPAddressPoolFilter,
+		},
 		// {
 		// 	Name:       "mlbc",
 		// 	ApiVersion: "network.deckhouse.io/v1alpha1",
@@ -79,6 +79,7 @@ func applyL2AdvertisementFilter(obj *unstructured.Unstructured) (go_hook.FilterR
 	}
 
 	return L2AdvertisementInfo{
+		Name:           l2Advertisement.Name,
 		IPAddressPools: l2Advertisement.Spec.IPAddressPools,
 		NodeSelectors:  l2Advertisement.Spec.NodeSelectors,
 		Namespace:      l2Advertisement.Namespace,
@@ -92,7 +93,10 @@ func applyIPAddressPoolFilter(obj *unstructured.Unstructured) (go_hook.FilterRes
 		return nil, err
 	}
 
-	return ipAddressPool.Name, err
+	return IPAddressPoolInfo{
+		Name:      ipAddressPool.Name,
+		Addresses: ipAddressPool.Spec.Addresses,
+	}, err
 }
 
 func createMetalLoadBalancerClass(input *go_hook.HookInput, mlbcInfo *MetalLoadBalancerClassInfo) {
@@ -145,7 +149,7 @@ func migrateMCtoMLBC(input *go_hook.HookInput) error {
 	}
 	mlbcDefault.Tolerations = mc.Spec.Settings.Speaker.Tolerations
 
-	// Getting nodeSelector from L2Advertisement
+	// Getting nodeSelector from L2Advertisement, create Default MetalLoadBalancerClass
 	snapsL2A := input.Snapshots["l2advertisements"]
 	for _, snapL2A := range snapsL2A {
 		l2Advertisement := snapL2A.(L2AdvertisementInfo)
@@ -155,8 +159,35 @@ func migrateMCtoMLBC(input *go_hook.HookInput) error {
 			}
 		}
 	}
-
-	// Create the Default MetalLoadBalancerClass
 	createMetalLoadBalancerClass(input, &mlbcDefault)
+
+	// Collect ipAddressPoolAddresses from IPAddressPools
+	ipAddressPollsMap := make(map[string][]string)
+	snapsIAP := input.Snapshots["ipaddresspools"]
+	for _, snapIAP := range snapsIAP {
+		ipAddressPool := snapIAP.(IPAddressPoolInfo)
+		ipAddressPollsMap[ipAddressPool.Name] = ipAddressPool.Addresses
+	}
+
+	var mlbc MetalLoadBalancerClassInfo
+	mlbc.Labels = make(map[string]string)
+	mlbc.Labels["heritage"] = "deckhouse"
+	mlbc.Labels["auto-generated-by"] = "migration-hook"
+	mlbc.IsDefault = false
+
+	// Create other MetalLoadBalancerClasses
+	l2AdvertisementNamesMap := make(map[string]bool)
+	snapsL2A = input.Snapshots["l2advertisements"]
+	for _, snapL2A := range snapsL2A {
+		l2Advertisement := snapL2A.(L2AdvertisementInfo)
+		l2AdvertisementNamesMap[l2Advertisement.Name] = true // Will be used to remove the MLBC
+		for _, ipAddressPool := range l2Advertisement.IPAddressPools {
+			if addresses, ok := ipAddressPollsMap[ipAddressPool]; ok {
+				mlbc.AddressPool = append(mlbc.AddressPool, addresses...)
+			}
+		}
+		mlbc.Name = l2Advertisement.Name
+		createMetalLoadBalancerClass(input, &mlbc)
+	}
 	return nil
 }

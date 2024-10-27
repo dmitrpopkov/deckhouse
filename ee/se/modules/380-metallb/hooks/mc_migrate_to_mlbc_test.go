@@ -54,6 +54,25 @@ spec:
   nodeSelectors:
   - matchLabels:
       zone: a
+---
+apiVersion: metallb.io/v1beta1
+kind: IPAddressPool
+metadata:
+  name: pool-1
+  namespace: d8-metallb
+spec:
+  addresses:
+  - 11.11.11.11/32
+---
+apiVersion: metallb.io/v1beta1
+kind: IPAddressPool
+metadata:
+  name: pool-2
+  namespace: d8-metallb
+spec:
+  addresses:
+  - 22.22.22.22/32
+  - 33.33.33.33/32
 `
 	expectedMLBC = `
 ---
@@ -75,6 +94,22 @@ spec:
     key: dedicated.deckhouse.io
     operator: Equal
     value: frontend
+`
+	expectedMLBC2 = `
+---
+apiVersion: network.deckhouse.io/v1alpha1
+kind: MetalLoadBalancerClass
+metadata:
+  name: zone-a
+spec:
+  isDefault: false
+  type: L2
+  addressPool:
+    - 11.11.11.11/32
+    - 22.22.22.22/32
+    - 33.33.33.33/32
+  nodeSelector: null
+  tolerations: null
 `
 )
 
@@ -102,11 +137,25 @@ var _ = Describe("Metallb hooks :: migrate MC to MetalLoadBalancerClass ::", fun
 			f.RunHook()
 		})
 
-		It("Created a new resource based on ModuleConfig", func() {
+		It("Created a new Default MLBC based on ModuleConfig", func() {
 			Expect(f).To(ExecuteSuccessfully())
 
 			MLBC := f.KubernetesResource("MetalLoadBalancerClass", "", "l2-default")
 			Expect(MLBC.ToYaml()).To(MatchYAML(expectedMLBC))
+		})
+	})
+
+	Context("Cluster with some IPAddressPools and L2Advertisement", func() {
+		BeforeEach(func() {
+			f.BindingContexts.Set(f.KubeStateSet(config))
+			f.RunHook()
+		})
+
+		It("Created a new MLBC based from L2Advertisement", func() {
+			Expect(f).To(ExecuteSuccessfully())
+
+			MLBC2 := f.KubernetesResource("MetalLoadBalancerClass", "", "zone-a")
+			Expect(MLBC2.ToYaml()).To(MatchYAML(expectedMLBC2))
 		})
 	})
 })
