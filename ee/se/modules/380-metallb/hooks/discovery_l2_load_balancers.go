@@ -145,6 +145,7 @@ func applyMetalLoadBalancerClassFilter(obj *unstructured.Unstructured) (go_hook.
 		Name:         metalLoadBalancerClass.Name,
 		AddressPool:  metalLoadBalancerClass.Spec.AddressPool,
 		Interfaces:   interfaces,
+		Tolerations:  []v1.Toleration{}, // FIXME Add tolerations from MLBC
 		NodeSelector: metalLoadBalancerClass.Spec.NodeSelector,
 		IsDefault:    metalLoadBalancerClass.Spec.IsDefault,
 	}, nil

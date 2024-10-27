@@ -30,6 +30,8 @@ properties:
               type: object
             isDefault:
               type: boolean
+            tolerations:
+              type: array
       l2lbservices:
         type: array
         default: []

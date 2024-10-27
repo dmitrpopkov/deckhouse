@@ -14,7 +14,8 @@ import (
 )
 
 const (
-	moduleConfig = `
+	config = `
+---
 apiVersion: deckhouse.io/v1alpha1
 kind: ModuleConfig
 metadata:
@@ -40,8 +41,22 @@ spec:
         protocol: layer2
         addresses:
           - 192.168.71.100-192.168.72.110
+---
+apiVersion: metallb.io/v1beta1
+kind: L2Advertisement
+metadata:
+  name: zone-a
+  namespace: d8-metallb
+spec:
+  ipAddressPools:
+  - pool-1
+  - pool-2
+  nodeSelectors:
+  - matchLabels:
+      zone: a
 `
 	expectedMLBC = `
+---
 apiVersion: network.deckhouse.io/v1alpha1
 kind: MetalLoadBalancerClass
 metadata:
@@ -54,6 +69,7 @@ spec:
   - 192.168.71.100-192.168.72.110
   nodeSelector:
     node-role.deckhouse.io/metallb: ""
+    zone: a
   tolerations:
   - effect: NoExecute
     key: dedicated.deckhouse.io
@@ -66,10 +82,12 @@ var _ = Describe("Metallb hooks :: migrate MC to MetalLoadBalancerClass ::", fun
 	f := HookExecutionConfigInit(`{"metallb":{"internal":{}}}`, "")
 	f.RegisterCRD("deckhouse.io", "v1alpha1", "ModuleConfig", false)
 	f.RegisterCRD("network.deckhouse.io", "v1alpha1", "MetalLoadBalancerClass", false)
+	f.RegisterCRD("metallb.io", "v1beta1", "L2Advertisement", true)
+	f.RegisterCRD("metallb.io", "v1beta1", "IPAddressPool", true)
 
 	Context("Empty cluster", func() {
 		BeforeEach(func() {
-			f.BindingContexts.Set(f.KubeStateSet(moduleConfig))
+			f.BindingContexts.Set(f.KubeStateSet(config))
 			f.RunHook()
 		})
 		It("Should run", func() {
@@ -80,7 +98,7 @@ var _ = Describe("Metallb hooks :: migrate MC to MetalLoadBalancerClass ::", fun
 
 	Context("Cluster with Metallb ModuleConfig", func() {
 		BeforeEach(func() {
-			f.BindingContexts.Set(f.KubeStateSet(moduleConfig))
+			f.BindingContexts.Set(f.KubeStateSet(config))
 			f.RunHook()
 		})
 

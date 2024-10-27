@@ -13,8 +13,6 @@ import (
 	"github.com/flant/shell-operator/pkg/kube/object_patch"
 	"github.com/flant/shell-operator/pkg/kube_events_manager/types"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-
-	"github.com/deckhouse/deckhouse/deckhouse-controller/pkg/apis/deckhouse.io/v1alpha1"
 )
 
 var _ = sdk.RegisterFunc(&go_hook.HookConfig{
@@ -30,11 +28,34 @@ var _ = sdk.RegisterFunc(&go_hook.HookConfig{
 			},
 			FilterFunc: applyModuleConfigFilter,
 		},
+		{
+			Name:       "l2advertisements",
+			ApiVersion: "metallb.io/v1beta1",
+			Kind:       "L2Advertisement",
+			NamespaceSelector: &types.NamespaceSelector{
+				NameSelector: &types.NameSelector{
+					MatchNames: []string{"d8-metallb"},
+				},
+			},
+			FilterFunc: applyL2AdvertisementFilter,
+		},
+		// {
+		// 	Name:       "ipaddresspools",
+		// 	ApiVersion: "metallb.io/v1beta1",
+		// 	Kind:       "IPAddressPool",
+		// 	FilterFunc: applyIPAddressPoolFilter,
+		// },
+		// {
+		// 	Name:       "mlbc",
+		// 	ApiVersion: "network.deckhouse.io/v1alpha1",
+		// 	Kind:       "MetalLoadBalancerClass",
+		// 	FilterFunc: applyMetalLoadBalancerClassFilter,
+		// },
 	},
 }, migrateMCtoMLBC)
 
 func applyModuleConfigFilter(obj *unstructured.Unstructured) (go_hook.FilterResult, error) {
-	mc := &v1alpha1.ModuleConfig{}
+	mc := &ModuleConfig{}
 	err := sdk.FromUnstructured(obj, mc)
 	if err != nil {
 		return nil, fmt.Errorf("cannot convert Metallb ModuleConfig: %v", err)
@@ -46,68 +67,96 @@ func applyModuleConfigFilter(obj *unstructured.Unstructured) (go_hook.FilterResu
 	return nil, nil
 }
 
+func applyL2AdvertisementFilter(obj *unstructured.Unstructured) (go_hook.FilterResult, error) {
+	l2Advertisement := &L2Advertisement{}
+	err := sdk.FromUnstructured(obj, l2Advertisement)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(l2Advertisement.Spec.IPAddressPools) == 0 {
+		return nil, nil
+	}
+
+	return L2AdvertisementInfo{
+		IPAddressPools: l2Advertisement.Spec.IPAddressPools,
+		NodeSelectors:  l2Advertisement.Spec.NodeSelectors,
+		Namespace:      l2Advertisement.Namespace,
+	}, nil
+}
+
+func applyIPAddressPoolFilter(obj *unstructured.Unstructured) (go_hook.FilterResult, error) {
+	ipAddressPool := &IPAddressPool{}
+	err := sdk.FromUnstructured(obj, ipAddressPool)
+	if err != nil {
+		return nil, err
+	}
+
+	return ipAddressPool.Name, err
+}
+
+func createMetalLoadBalancerClass(input *go_hook.HookInput, mlbcInfo *MetalLoadBalancerClassInfo) {
+	mlbc := map[string]interface{}{
+		"apiVersion": "network.deckhouse.io/v1alpha1",
+		"kind":       "MetalLoadBalancerClass",
+		"metadata": map[string]interface{}{
+			"name": mlbcInfo.Name,
+		},
+		"spec": map[string]interface{}{
+			"isDefault":    mlbcInfo.IsDefault,
+			"type":         "L2",
+			"addressPool":  mlbcInfo.AddressPool,
+			"nodeSelector": mlbcInfo.NodeSelector,
+			"tolerations":  mlbcInfo.Tolerations,
+		},
+	}
+	mlbcUnstructured, err := sdk.ToUnstructured(&mlbc)
+	if err != nil {
+		return
+	}
+	input.PatchCollector.Create(mlbcUnstructured, object_patch.IgnoreIfExists())
+}
+
 func migrateMCtoMLBC(input *go_hook.HookInput) error {
 	snapsMC := input.Snapshots["metallb_module_config"]
-	if len(snapsMC) == 1 && snapsMC[0] != nil {
-		mc, ok := snapsMC[0].(*v1alpha1.ModuleConfig)
-		if !ok {
-			return nil
-		}
-
-		var addressPools []interface{}
-		if addressPoolsRaw, ok := mc.Spec.Settings["addressPools"]; ok {
-			addressPools = addressPoolsRaw.([]interface{})
-		}
-
-		// Getting address pools from MC
-		addressesSlice := make([]string, 0, 8)
-		for _, addressPool := range addressPools {
-			protocolRaw, ok := addressPool.(map[string]interface{})["protocol"]
-			if !ok || protocolRaw.(string) != "layer2" {
-				continue
-			}
-			addressesRaw, ok := addressPool.(map[string]interface{})["addresses"]
-			if !ok {
-				continue
-			}
-			for _, addr := range addressesRaw.([]interface{}) {
-				addressesSlice = append(addressesSlice, addr.(string))
-			}
-		}
-
-		// Getting nodeSelector and tolerations from MC
-		nodeSelector := make((map[string]interface{}), 8)
-		tolerations := make([]interface{}, 0, 8)
-		if speakerRaw, ok := mc.Spec.Settings["speaker"]; ok {
-			speaker := speakerRaw.(map[string]interface{})
-			if nodeSelectorRaw, ok := speaker["nodeSelector"]; ok {
-				nodeSelector = nodeSelectorRaw.(map[string]interface{})
-			}
-			if tolerationsRaw, ok := speaker["tolerations"]; ok {
-				tolerations = tolerationsRaw.([]interface{})
-			}
-		}
-
-		// Create MetalLoadBalancerClass resource in a cluster
-		mlbc := map[string]interface{}{
-			"apiVersion": "network.deckhouse.io/v1alpha1",
-			"kind":       "MetalLoadBalancerClass",
-			"metadata": map[string]interface{}{
-				"name": "l2-default",
-			},
-			"spec": map[string]interface{}{
-				"isDefault":    true,
-				"type":         "L2",
-				"addressPool":  addressesSlice,
-				"nodeSelector": nodeSelector,
-				"tolerations":  tolerations,
-			},
-		}
-		mlbcUnstructured, err := sdk.ToUnstructured(&mlbc)
-		if err != nil {
-			return nil
-		}
-		input.PatchCollector.Create(mlbcUnstructured, object_patch.IgnoreIfExists())
+	if len(snapsMC) != 1 || snapsMC[0] == nil {
+		return nil
 	}
+	mc, ok := snapsMC[0].(*ModuleConfig)
+	if !ok {
+		return nil
+	}
+
+	var mlbcDefault MetalLoadBalancerClassInfo
+	mlbcDefault.Name = "l2-default"
+	mlbcDefault.IsDefault = true
+
+	// Getting addressPools, nodeSelector and tolerations from MC
+	if len(mc.Spec.Settings.AddressPools) > 0 {
+		for _, addressPool := range mc.Spec.Settings.AddressPools {
+			if addressPool.Protocol != "layer2" {
+				continue
+			}
+			mlbcDefault.AddressPool = append(mlbcDefault.AddressPool, addressPool.Addresses...)
+		}
+	}
+	if mc.Spec.Settings.Speaker.NodeSelector != nil {
+		mlbcDefault.NodeSelector = mc.Spec.Settings.Speaker.NodeSelector
+	}
+	mlbcDefault.Tolerations = mc.Spec.Settings.Speaker.Tolerations
+
+	// Getting nodeSelector from L2Advertisement
+	snapsL2A := input.Snapshots["l2advertisements"]
+	for _, snapL2A := range snapsL2A {
+		l2Advertisement := snapL2A.(L2AdvertisementInfo)
+		if len(l2Advertisement.NodeSelectors) > 0 {
+			for k, v := range l2Advertisement.NodeSelectors[0].MatchLabels {
+				mlbcDefault.NodeSelector[k] = v
+			}
+		}
+	}
+
+	// Create the Default MetalLoadBalancerClass
+	createMetalLoadBalancerClass(input, &mlbcDefault)
 	return nil
 }

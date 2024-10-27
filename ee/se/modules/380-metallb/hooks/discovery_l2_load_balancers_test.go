@@ -179,6 +179,7 @@ spec:
             "nodeSelector": {
               "node-role.kubernetes.io/edge": ""
             },
+			"tolerations": [],
             "isDefault": false
           },
           {
@@ -193,6 +194,7 @@ spec:
             "nodeSelector": {
               "node-role.kubernetes.io/frontend": ""
             },
+			"tolerations": [],
             "isDefault": true
           }
 ]
@@ -430,6 +432,7 @@ spec:
             "nodeSelector": {
               "node-role.kubernetes.io/frontend": ""
             },
+			"tolerations": [],
             "isDefault": true
           }
 ]
