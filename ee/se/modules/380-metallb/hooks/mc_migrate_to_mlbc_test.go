@@ -73,12 +73,25 @@ spec:
   addresses:
   - 22.22.22.22/32
   - 33.33.33.33/32
+---
+apiVersion: network.deckhouse.io/v1alpha1
+kind: MetalLoadBalancerClass
+metadata:
+  name: zone-b
+  labels:
+    auto-generated-by: migration-hook
+spec:
+  isDefault: false
+  type: L2
+  addressPool:
+    - 44.44.44.44/32
 `
 	expectedMLBC = `
 ---
 apiVersion: network.deckhouse.io/v1alpha1
 kind: MetalLoadBalancerClass
 metadata:
+  labels: null
   name: l2-default
 spec:
   isDefault: true
@@ -100,6 +113,9 @@ spec:
 apiVersion: network.deckhouse.io/v1alpha1
 kind: MetalLoadBalancerClass
 metadata:
+  labels:
+    auto-generated-by: migration-hook
+    heritage: deckhouse
   name: zone-a
 spec:
   isDefault: false
@@ -151,11 +167,13 @@ var _ = Describe("Metallb hooks :: migrate MC to MetalLoadBalancerClass ::", fun
 			f.RunHook()
 		})
 
-		It("Created a new MLBC based from L2Advertisement", func() {
+		It("Created a new MLBC based from L2Advertisement, deleted orphan MLBC", func() {
 			Expect(f).To(ExecuteSuccessfully())
 
 			MLBC2 := f.KubernetesResource("MetalLoadBalancerClass", "", "zone-a")
 			Expect(MLBC2.ToYaml()).To(MatchYAML(expectedMLBC2))
+			MLBC3 := f.KubernetesResource("MetalLoadBalancerClass", "", "zone-b")
+			Expect(MLBC3.Exists()).To(BeFalse())
 		})
 	})
 })

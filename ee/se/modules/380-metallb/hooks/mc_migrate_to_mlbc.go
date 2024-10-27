@@ -45,12 +45,12 @@ var _ = sdk.RegisterFunc(&go_hook.HookConfig{
 			Kind:       "IPAddressPool",
 			FilterFunc: applyIPAddressPoolFilter,
 		},
-		// {
-		// 	Name:       "mlbc",
-		// 	ApiVersion: "network.deckhouse.io/v1alpha1",
-		// 	Kind:       "MetalLoadBalancerClass",
-		// 	FilterFunc: applyMetalLoadBalancerClassFilter,
-		// },
+		{
+			Name:       "mlbc_with_label",
+			ApiVersion: "network.deckhouse.io/v1alpha1",
+			Kind:       "MetalLoadBalancerClass",
+			FilterFunc: applyMLBCFilter,
+		},
 	},
 }, migrateMCtoMLBC)
 
@@ -99,12 +99,29 @@ func applyIPAddressPoolFilter(obj *unstructured.Unstructured) (go_hook.FilterRes
 	}, err
 }
 
+func applyMLBCFilter(obj *unstructured.Unstructured) (go_hook.FilterResult, error) {
+	var metalLoadBalancerClass MetalLoadBalancerClass
+
+	err := sdk.FromUnstructured(obj, &metalLoadBalancerClass)
+	if err != nil {
+		return nil, err
+	}
+
+	for k, v := range metalLoadBalancerClass.Labels {
+		if k == "auto-generated-by" && v == "migration-hook" {
+			return metalLoadBalancerClass.Name, nil
+		}
+	}
+	return nil, nil
+}
+
 func createMetalLoadBalancerClass(input *go_hook.HookInput, mlbcInfo *MetalLoadBalancerClassInfo) {
 	mlbc := map[string]interface{}{
 		"apiVersion": "network.deckhouse.io/v1alpha1",
 		"kind":       "MetalLoadBalancerClass",
 		"metadata": map[string]interface{}{
-			"name": mlbcInfo.Name,
+			"name":   mlbcInfo.Name,
+			"labels": mlbcInfo.Labels,
 		},
 		"spec": map[string]interface{}{
 			"isDefault":    mlbcInfo.IsDefault,
@@ -188,6 +205,21 @@ func migrateMCtoMLBC(input *go_hook.HookInput) error {
 		}
 		mlbc.Name = l2Advertisement.Name
 		createMetalLoadBalancerClass(input, &mlbc)
+	}
+
+	// Delete orphan MLBC with the label
+	snapsMLBC := input.Snapshots["mlbc_with_label"]
+	for _, snapMLBC := range snapsMLBC {
+		mlbcName := snapMLBC.(string)
+		if _, ok := l2AdvertisementNamesMap[mlbcName]; !ok {
+			input.PatchCollector.Delete(
+				"network.deckhouse.io/v1alpha1",
+				"MetalLoadBalancerClass",
+				"",
+				mlbcName,
+				object_patch.InForeground(),
+			)
+		}
 	}
 	return nil
 }
