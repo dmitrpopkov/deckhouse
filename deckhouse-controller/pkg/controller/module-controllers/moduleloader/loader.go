@@ -212,41 +212,41 @@ func (l *Loader) ensureEmbeddedModule(ctx context.Context, def *Definition) erro
 	module := new(v1alpha1.Module)
 	if err := l.client.Get(ctx, client.ObjectKey{Name: def.Name}, module); err != nil {
 		if apierrors.IsNotFound(err) {
-			if module.Properties.Weight != def.Weight {
-				module.Properties.Weight = def.Weight
-				// TODO(ipaqsa): add retry on conflict
-				return l.client.Update(ctx, module)
+			module = &v1alpha1.Module{
+				TypeMeta: metav1.TypeMeta{
+					Kind:       v1alpha1.ModuleGVK.Kind,
+					APIVersion: v1alpha1.ModuleGVK.GroupVersion().String(),
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name: def.Name,
+				},
+				Properties: v1alpha1.ModuleProperties{
+					Weight:           def.Weight,
+					Source:           v1alpha1.ModuleSourceEmbedded,
+					AvailableSources: []string{},
+				},
+				Status: v1alpha1.ModuleStatus{
+					Phase: v1alpha1.ModulePhaseReady,
+					Conditions: []v1alpha1.ModuleCondition{
+						{
+							Type:               v1alpha1.ModuleConditionEnabled,
+							Status:             corev1.ConditionFalse,
+							LastTransitionTime: metav1.Now(),
+							LastProbeTime:      metav1.Now(),
+						},
+					},
+				},
 			}
-			return nil
+			return l.client.Create(ctx, module)
 		}
 		return err
 	}
-	module = &v1alpha1.Module{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       v1alpha1.ModuleGVK.Kind,
-			APIVersion: v1alpha1.ModuleGVK.GroupVersion().String(),
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name: def.Name,
-		},
-		Properties: v1alpha1.ModuleProperties{
-			Weight:           def.Weight,
-			Source:           v1alpha1.ModuleSourceEmbedded,
-			AvailableSources: []string{},
-		},
-		Status: v1alpha1.ModuleStatus{
-			Phase: string(v1alpha1.ModulePhaseReady),
-			Conditions: []v1alpha1.ModuleCondition{
-				{
-					Type:               v1alpha1.ModuleConditionEnabled,
-					Status:             corev1.ConditionFalse,
-					LastTransitionTime: metav1.Now(),
-					LastProbeTime:      metav1.Now(),
-				},
-			},
-		},
+	if module.Properties.Weight != def.Weight {
+		module.Properties.Weight = def.Weight
+		// TODO(ipaqsa): add retry on conflict
+		return l.client.Update(ctx, module)
 	}
-	return l.client.Create(ctx, module)
+	return nil
 }
 
 // parseModulesDir returns modules definitions from the target dir
