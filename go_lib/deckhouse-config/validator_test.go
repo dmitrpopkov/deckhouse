@@ -22,6 +22,7 @@ import (
 	"testing"
 
 	"github.com/flant/addon-operator/pkg/module_manager"
+	"github.com/flant/shell-operator/pkg/unilogger"
 	. "github.com/onsi/gomega"
 	"sigs.k8s.io/yaml"
 
@@ -263,9 +264,9 @@ spec:
 					GlobalHooksDir: "testdata/validator/global",
 				},
 			}
-			mm := module_manager.NewModuleManager(context.Background(), mmc)
+			mm := module_manager.NewModuleManager(context.Background(), mmc, unilogger.NewNop())
 
-			err := mm.Init()
+			err := mm.Init(unilogger.NewNop())
 			g.Expect(err).ShouldNot(HaveOccurred(), "should init module manager")
 
 			v := NewConfigValidator(mm)

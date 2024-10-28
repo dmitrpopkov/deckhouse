@@ -24,6 +24,7 @@ import (
 	"strings"
 
 	"github.com/ettle/strcase"
+	"github.com/flant/shell-operator/pkg/unilogger"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/mutate"
 	regTransport "github.com/google/go-containerregistry/pkg/v1/remote/transport"
@@ -40,13 +41,16 @@ type moduleReleaseService struct {
 
 	registry        string
 	registryOptions []cr.Option
+
+	logger *unilogger.Logger
 }
 
-func newModuleReleaseService(registryAddress string, registryConfig *utils.RegistryConfig) *moduleReleaseService {
+func newModuleReleaseService(registryAddress string, registryConfig *utils.RegistryConfig, logger *unilogger.Logger) *moduleReleaseService {
 	return &moduleReleaseService{
 		dc:              dependency.NewDependencyContainer(),
 		registry:        registryAddress,
-		registryOptions: utils.GenerateRegistryOptions(registryConfig),
+		registryOptions: utils.GenerateRegistryOptions(registryConfig, logger),
+		logger:          logger,
 	}
 }
 

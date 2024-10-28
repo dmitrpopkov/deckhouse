@@ -20,14 +20,13 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
-	"os"
 	"strings"
 	"time"
 
 	"github.com/cloudflare/cfssl/helpers"
+	"github.com/flant/shell-operator/pkg/unilogger"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/yaml"
@@ -38,13 +37,9 @@ import (
 
 var _ = Describe("ingress-nginx :: hooks :: order_certificates", func() {
 	f := HookExecutionConfigInit("", "")
-	var log = logrus.New()
-	log.Level = logrus.InfoLevel
-	log.Out = os.Stdout
-	var logEntry = log.WithContext(context.TODO())
 
-	selfSignedCA, _ := certificate.GenerateCA(logEntry, "kube-rbac-proxy-ca-key-pair")
-	cert, _ := certificate.GenerateSelfSignedCert(logEntry, "test", selfSignedCA, certificate.WithSigningDefaultExpiry(10*365*24*time.Hour))
+	selfSignedCA, _ := certificate.GenerateCA(unilogger.NewNop(), "kube-rbac-proxy-ca-key-pair")
+	cert, _ := certificate.GenerateSelfSignedCert(unilogger.NewNop(), "test", selfSignedCA, certificate.WithSigningDefaultExpiry(10*365*24*time.Hour))
 
 	selfSignedCAKey := addIndentsToMultilineString(selfSignedCA.Key, 4)
 	selfSignedCACert := addIndentsToMultilineString(selfSignedCA.Cert, 4)

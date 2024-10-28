@@ -28,6 +28,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/flant/shell-operator/pkg/unilogger"
 	"github.com/google/uuid"
 	"github.com/mwitkow/grpc-proxy/proxy"
 	"google.golang.org/grpc"
@@ -44,14 +45,14 @@ import (
 
 type StreamDirector struct {
 	methodsPrefix string
-	log           *slog.Logger
+	log           *unilogger.Logger
 
 	wg       *sync.WaitGroup
 	stdOutMx *sync.Mutex
 	stdErrMx *sync.Mutex
 }
 
-func NewStreamDirector(log *slog.Logger, methodsPrefix string) *StreamDirector {
+func NewStreamDirector(log *unilogger.Logger, methodsPrefix string) *StreamDirector {
 	return &StreamDirector{
 		methodsPrefix: methodsPrefix,
 		log:           log,
@@ -171,7 +172,7 @@ func socketPath() (string, error) {
 	return address, nil
 }
 
-func writeLogs(log *slog.Logger, reader io.ReadCloser, writer io.Writer, mx *sync.Mutex, wg *sync.WaitGroup) {
+func writeLogs(log *unilogger.Logger, reader io.ReadCloser, writer io.Writer, mx *sync.Mutex, wg *sync.WaitGroup) {
 	defer wg.Done()
 
 	scanner := bufio.NewScanner(reader)

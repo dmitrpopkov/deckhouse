@@ -238,7 +238,7 @@ func (s *Service) abort(
 		CommanderMode:     request.Options.CommanderMode,
 		CommanderUUID:     commanderUUID,
 		TerraformContext:  terraform.NewTerraformContext(),
-	})
+	}, s.logger)
 
 	abortErr := bootstrapper.Abort(false)
 	state := bootstrapper.GetLastState()

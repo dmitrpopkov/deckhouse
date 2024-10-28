@@ -26,8 +26,8 @@ import (
 	"testing"
 	"time"
 
+	log "github.com/flant/shell-operator/pkg/unilogger"
 	"github.com/jonboulle/clockwork"
-	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
@@ -281,7 +281,7 @@ func (suite *ControllerTestSuite) setupController(yamlDoc string) {
 	rec := &moduleDocumentationReconciler{
 		client:               cl,
 		downloadedModulesDir: d8env.GetDownloadedModulesDir(),
-		logger:               log.New(),
+		logger:               log.NewNop(),
 		docsBuilder:          docs_builder.NewClient(dc.GetHTTPClient()),
 		dc:                   dc,
 	}

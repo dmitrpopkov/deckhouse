@@ -33,7 +33,7 @@ type ProbeListHandler struct {
 }
 
 func (h *ProbeListHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	log.Infoln("ProbeList", r.RemoteAddr, r.RequestURI)
+	log.Info("ProbeList", r.RemoteAddr, r.RequestURI)
 
 	if r.Method != http.MethodGet {
 		w.WriteHeader(http.StatusMethodNotAllowed)

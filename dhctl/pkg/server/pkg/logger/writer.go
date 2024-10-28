@@ -15,12 +15,13 @@
 package logger
 
 import (
-	"log/slog"
 	"sync"
+
+	"github.com/flant/shell-operator/pkg/unilogger"
 )
 
 type LogWriter[T any] struct {
-	l      *slog.Logger
+	l      *unilogger.Logger
 	sendCh chan T
 	f      func([]string) T
 
@@ -28,7 +29,7 @@ type LogWriter[T any] struct {
 	prev []byte
 }
 
-func NewLogWriter[T any](l *slog.Logger, sendCh chan T, f func(lines []string) T) *LogWriter[T] {
+func NewLogWriter[T any](l *unilogger.Logger, sendCh chan T, f func(lines []string) T) *LogWriter[T] {
 	return &LogWriter[T]{
 		l:      l,
 		sendCh: sendCh,

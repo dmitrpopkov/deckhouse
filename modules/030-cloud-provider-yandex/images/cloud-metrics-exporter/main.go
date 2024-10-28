@@ -18,8 +18,6 @@ import (
 	"exporter/app"
 	"os"
 
-	"github.com/sirupsen/logrus"
-
 	"gopkg.in/alecthomas/kingpin.v2"
 
 	"exporter/internal/server"
@@ -32,9 +30,9 @@ func main() {
 
 	app.InitFlags(kpApp)
 
-	kpApp.Action(func(context *kingpin.ParseContext) error {
-		logger := app.InitLogger()
+	logger := app.InitLogger()
 
+	kpApp.Action(func(context *kingpin.ParseContext) error {
 		stopCh := make(chan struct{}, 1)
 
 		yandexAPI := yandex.NewCloudAPI(logger, app.FolderID, stopCh).
@@ -49,7 +47,7 @@ func main() {
 
 	_, err := kpApp.Parse(os.Args[1:])
 	if err != nil {
-		logrus.Error(err)
+		logger.Error(err.Error())
 		os.Exit(1)
 	}
 }

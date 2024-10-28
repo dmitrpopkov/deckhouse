@@ -16,7 +16,7 @@ import (
 
 	cloudDataV1 "github.com/deckhouse/deckhouse/go_lib/cloud-data/apis/v1"
 	"github.com/deckhouse/deckhouse/go_lib/cloud-data/apis/v1alpha1"
-	"github.com/sirupsen/logrus"
+	"github.com/flant/shell-operator/pkg/unilogger"
 
 	ovirtclientlog "github.com/ovirt/go-ovirt-client-log/v3"
 	ovirtclient "github.com/ovirt/go-ovirt-client/v3"
@@ -31,7 +31,7 @@ const (
 )
 
 type Discoverer struct {
-	logger *logrus.Entry
+	logger *unilogger.Logger
 	config *CloudConfig
 }
 
@@ -96,7 +96,7 @@ func (c *CloudConfig) client() (ovirtclient.ClientWithLegacySupport, error) {
 	return client, nil
 }
 
-func NewDiscoverer(logger *logrus.Entry) *Discoverer {
+func NewDiscoverer(logger *unilogger.Logger) *Discoverer {
 	config, err := newCloudConfig()
 	if err != nil {
 		logger.Fatalf("Cannot get opts from env: %v", err)

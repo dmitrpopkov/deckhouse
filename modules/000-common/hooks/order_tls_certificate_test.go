@@ -20,13 +20,12 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
-	"os"
 	"time"
 
 	"github.com/cloudflare/cfssl/helpers"
+	"github.com/flant/shell-operator/pkg/unilogger"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"github.com/sirupsen/logrus"
 	certificatesv1 "k8s.io/api/certificates/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -38,19 +37,14 @@ import (
 var _ = Describe("Modules :: common :: hooks :: order_tls_certificate", func() {
 	f := HookExecutionConfigInit(`{"global":{},"moduleName":{"internal":{}}}`, `{}`)
 
-	var log = logrus.New()
-	log.Level = logrus.InfoLevel
-	log.Out = os.Stdout
-	var logEntry = log.WithContext(context.TODO())
-
-	selfSignedCA, _ := certificate.GenerateCA(logEntry, "kubernetes")
-	tlsCert, _ := certificate.GenerateSelfSignedCert(logEntry,
+	selfSignedCA, _ := certificate.GenerateCA(unilogger.NewNop(), "kubernetes")
+	tlsCert, _ := certificate.GenerateSelfSignedCert(unilogger.NewNop(),
 		"system:node:module-name.d8-module-name",
 		selfSignedCA,
 		certificate.WithGroups("system:nodes"),
 		certificate.WithSANs("module-name.d8-module-name", "module-name.d8-module-name.svc"),
 	)
-	incorrectCert, _ := certificate.GenerateSelfSignedCert(logEntry, "test", selfSignedCA)
+	incorrectCert, _ := certificate.GenerateSelfSignedCert(unilogger.NewNop(), "test", selfSignedCA)
 
 	Context("Cluster without certificate", func() {
 		BeforeEach(func() {

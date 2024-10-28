@@ -33,7 +33,7 @@ type StatsHandler struct {
 
 // TODO make better stats!
 func (h *StatsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	log.Infoln("Stats", r.RemoteAddr, r.RequestURI)
+	log.Info("Stats", r.RemoteAddr, r.RequestURI)
 
 	stats, err := getStats(h.DbCtx)
 	if err != nil {

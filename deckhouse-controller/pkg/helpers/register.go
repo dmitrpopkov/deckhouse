@@ -16,6 +16,7 @@ package helpers
 
 import (
 	sh_app "github.com/flant/shell-operator/pkg/app"
+	"github.com/flant/shell-operator/pkg/unilogger"
 	"gopkg.in/alecthomas/kingpin.v2"
 
 	changeregistry "github.com/deckhouse/deckhouse/deckhouse-controller/pkg/helpers/change_registry"
@@ -23,7 +24,7 @@ import (
 	dhctlapp "github.com/deckhouse/deckhouse/dhctl/cmd/dhctl/commands"
 )
 
-func DefineHelperCommands(kpApp *kingpin.Application) {
+func DefineHelperCommands(kpApp *kingpin.Application, logger *unilogger.Logger) {
 	helpersCommand := sh_app.CommandWithDefaultUsageTemplate(kpApp, "helper", "Deckhouse helpers.")
 
 	{
@@ -49,7 +50,7 @@ func DefineHelperCommands(kpApp *kingpin.Application) {
 
 		newImageTag := changeRegistryCommand.Flag("new-deckhouse-tag", "New tag that will be used for deckhouse deployment image (by default current tag from deckhouse deployment will be used).").String()
 		changeRegistryCommand.Action(func(_ *kingpin.ParseContext) error {
-			return changeregistry.ChangeRegistry(*newRegistry, *user, *password, *caFile, *newImageTag, *scheme, *dryRun)
+			return changeregistry.ChangeRegistry(*newRegistry, *user, *password, *caFile, *newImageTag, *scheme, *dryRun, logger)
 		})
 	}
 

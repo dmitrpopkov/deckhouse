@@ -20,10 +20,10 @@ import (
 	"reflect"
 	"time"
 
-	logger "github.com/docker/distribution/context"
 	"github.com/flant/addon-operator/pkg/kube_config_manager/config"
 	"github.com/flant/addon-operator/pkg/module_manager/models/modules/events"
 	"github.com/flant/addon-operator/pkg/utils"
+	"github.com/flant/shell-operator/pkg/unilogger"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
@@ -38,12 +38,12 @@ type ModuleConfigBackend struct {
 	mcKubeClient     *versioned.Clientset
 	deckhouseConfigC chan<- utils.Values
 	moduleEventC     chan events.ModuleEvent
-	logger           logger.Logger
+	logger           *unilogger.Logger
 }
 
 // New returns native(Deckhouse) implementation for addon-operator's KubeConfigManager which works directly with
 // deckhouse.io/ModuleConfig, avoiding moving configs to the ConfigMap
-func New(config *rest.Config, deckhouseConfigC chan<- utils.Values, logger logger.Logger) *ModuleConfigBackend {
+func New(config *rest.Config, deckhouseConfigC chan<- utils.Values, logger *unilogger.Logger) *ModuleConfigBackend {
 	mcClient, err := versioned.NewForConfig(config)
 	if err != nil {
 		panic(err)

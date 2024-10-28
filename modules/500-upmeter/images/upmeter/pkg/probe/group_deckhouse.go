@@ -19,12 +19,11 @@ package probe
 import (
 	"time"
 
-	"github.com/sirupsen/logrus"
-
 	"d8.io/upmeter/pkg/kubernetes"
 	"d8.io/upmeter/pkg/monitor/hookprobe"
 	"d8.io/upmeter/pkg/probe/checker"
 	"d8.io/upmeter/pkg/probe/run"
+	"github.com/sirupsen/logrus"
 )
 
 func initDeckhouse(access kubernetes.Access, preflight checker.Doer, logger *logrus.Logger) []runnerConfig {

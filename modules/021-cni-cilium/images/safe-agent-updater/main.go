@@ -22,7 +22,7 @@ import (
 	"os"
 	"time"
 
-	log "github.com/sirupsen/logrus"
+	log "github.com/flant/shell-operator/pkg/unilogger"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -37,30 +37,32 @@ const (
 )
 
 func main() {
+	logger := log.NewLogger(log.Options{})
+
 	config, _ := rest.InClusterConfig()
 	kubeClient, err := kubernetes.NewForConfig(config)
 	if err != nil {
-		log.Fatalf("[SafeAgentUpdater] Failed to init kubeClient. Error: %v", err)
+		logger.Fatalf("[SafeAgentUpdater] Failed to init kubeClient. Error: %v", err)
 	}
 	nodeName := os.Getenv("NODE_NAME")
 	if len(nodeName) == 0 {
-		log.Fatalf("[SafeAgentUpdater] Failed to get env NODE_NAME.")
+		logger.Fatalf("[SafeAgentUpdater] Failed to get env NODE_NAME.")
 	}
 	currentAgentPodName, isCurrentAgentPodGenerationDesired, err := checkAgentPodGeneration(kubeClient, nodeName)
 	if err != nil {
-		log.Fatal(err)
+		logger.Fatal(err.Error())
 	}
 	if !isCurrentAgentPodGenerationDesired {
 		err = deletePod(kubeClient, currentAgentPodName)
 		if err != nil {
-			log.Fatal(err)
+			logger.Fatal(err.Error())
 		}
 		err := waitUntilNewPodCreatedAndBecomeReady(kubeClient, nodeName, scanIterations)
 		if err != nil {
-			log.Fatal(err)
+			logger.Fatal(err.Error())
 		}
 	}
-	log.Infof("[SafeAgentUpdater] Finished and exit")
+	logger.Infof("[SafeAgentUpdater] Finished and exit")
 }
 
 func checkAgentPodGeneration(kubeClient kubernetes.Interface, nodeName string) (currentAgentPodName string, isCurrentAgentPodGenerationDesired bool, err error) {

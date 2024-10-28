@@ -23,7 +23,7 @@ import (
 
 	"github.com/flant/addon-operator/pkg/utils"
 	"github.com/flant/addon-operator/pkg/values/validation"
-	log "github.com/sirupsen/logrus"
+	log "github.com/flant/shell-operator/pkg/unilogger"
 	"helm.sh/helm/v3/pkg/chartutil"
 	"sigs.k8s.io/yaml"
 )

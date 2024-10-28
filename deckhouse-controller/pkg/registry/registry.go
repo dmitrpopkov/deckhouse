@@ -22,6 +22,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/flant/shell-operator/pkg/unilogger"
 	"gopkg.in/alecthomas/kingpin.v2"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -49,7 +50,7 @@ const (
 	ReleaseChannelRockSolid   = "rock-solid"
 )
 
-func DefineRegistryCommand(kpApp *kingpin.Application) {
+func DefineRegistryCommand(kpApp *kingpin.Application, logger *unilogger.Logger) {
 	registryCmd := kpApp.Command("registry", "Deckhouse repository work.").
 		PreAction(func(_ *kingpin.ParseContext) error {
 			kpApp.UsageTemplate(kingpin.DefaultUsageTemplate)
@@ -62,12 +63,12 @@ func DefineRegistryCommand(kpApp *kingpin.Application) {
 			return nil
 		})
 
-	registerReleaseCommand(registryGetCmd)
+	registerReleaseCommand(registryGetCmd, logger)
 	registerSourceCommand(registryGetCmd)
-	registerModuleCommand(registryGetCmd)
+	registerModuleCommand(registryGetCmd, logger)
 }
 
-func registerReleaseCommand(parentCMD *kingpin.CmdClause) {
+func registerReleaseCommand(parentCMD *kingpin.CmdClause, logger *unilogger.Logger) {
 	releasesCmd := parentCMD.Command("releases", "Release resource. Aliases: 'release','rel'").
 		Alias("release").Alias("rel")
 
@@ -84,7 +85,7 @@ func registerReleaseCommand(parentCMD *kingpin.CmdClause) {
 			return fmt.Errorf("get deckhouse registry: %w", err)
 		}
 
-		svc := newDeckhouseReleaseService(registry, rconf)
+		svc := newDeckhouseReleaseService(registry, rconf, logger)
 
 		if *releaseChannel != "" {
 			if *releaseChannel != ReleaseChannelAuto {
@@ -192,7 +193,7 @@ func registerSourceCommand(parentCMD *kingpin.CmdClause) {
 	})
 }
 
-func registerModuleCommand(parentCMD *kingpin.CmdClause) {
+func registerModuleCommand(parentCMD *kingpin.CmdClause, logger *unilogger.Logger) {
 	// deckhouse-controller registry list modules <module-source>
 	modulesCmd := parentCMD.Command("modules", "Show modules list. Aliases: 'module','mod'").
 		Alias("module").Alias("mod")
@@ -210,7 +211,7 @@ func registerModuleCommand(parentCMD *kingpin.CmdClause) {
 			return fmt.Errorf("get module registry: %w", err)
 		}
 
-		svc := newModuleReleaseService(registry, rconf)
+		svc := newModuleReleaseService(registry, rconf, logger)
 
 		if *moduleName != "" {
 			if *moduleChannel != "" {

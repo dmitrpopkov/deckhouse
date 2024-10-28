@@ -24,14 +24,14 @@ import (
 	"syscall"
 	"time"
 
+	log "github.com/flant/shell-operator/pkg/unilogger"
 	"github.com/go-chi/chi"
-	log "github.com/sirupsen/logrus"
 )
 
 type Server struct {
 	api             *yandex.CloudApi
 	servicesForBach []string
-	logger          *log.Entry
+	logger          *log.Logger
 
 	router chi.Router
 }
@@ -42,7 +42,7 @@ type serviceResult struct {
 	err     error
 }
 
-func New(logger *log.Entry, api *yandex.CloudApi, servicesForBach []string) *Server {
+func New(logger *log.Logger, api *yandex.CloudApi, servicesForBach []string) *Server {
 	metricsSet := map[string]struct{}{}
 	servicesList := make([]string, 0)
 	for _, s := range servicesForBach {
@@ -51,7 +51,7 @@ func New(logger *log.Entry, api *yandex.CloudApi, servicesForBach []string) *Ser
 			if api.HasService(s) {
 				servicesList = append(servicesList, s)
 			} else {
-				logger.Warningf("incorrect service %s", s)
+				logger.Warn("incorrect service %s", s)
 			}
 		}
 	}
@@ -190,7 +190,7 @@ func (h *Server) getBatch(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if len(servicesWithErrors) > 0 {
-		h.logger.Warningf("End request scrape batch metrics with errors: %v", servicesWithErrors)
+		h.logger.Warn("End request scrape batch metrics with errors: %v", servicesWithErrors)
 	} else {
 		h.logger.Info("End request scrape batch metrics")
 	}

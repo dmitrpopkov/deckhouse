@@ -17,16 +17,15 @@ limitations under the License.
 package hooks
 
 import (
-	"context"
 	"crypto/x509"
 	"encoding/base64"
 	"encoding/pem"
 	"fmt"
 
 	"github.com/flant/addon-operator/pkg/module_manager/go_hook"
+	"github.com/flant/shell-operator/pkg/unilogger"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"github.com/sirupsen/logrus"
 
 	. "github.com/deckhouse/deckhouse/testing/hooks"
 )
@@ -65,7 +64,7 @@ var _ = Describe("Node Manager hooks :: generate_webhook_certs ::", func() {
 	})
 	Context("With secrets", func() {
 		caAuthority, _ := genWebhookCa(nil)
-		tlsAuthority, _ := genWebhookTLS(&go_hook.HookInput{LogEntry: logrus.New().WithContext(context.Background())}, caAuthority, "caps-manager-webhook", "caps-controller-manager-webhook-service")
+		tlsAuthority, _ := genWebhookTLS(&go_hook.HookInput{Logger: unilogger.NewNop()}, caAuthority, "caps-manager-webhook", "caps-controller-manager-webhook-service")
 
 		BeforeEach(func() {
 			f.BindingContexts.Set(f.KubeStateSet(fmt.Sprintf(`

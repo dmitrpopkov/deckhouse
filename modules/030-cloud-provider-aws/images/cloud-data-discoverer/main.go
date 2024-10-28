@@ -18,7 +18,6 @@ import (
 	"os"
 
 	"github.com/alecthomas/kingpin"
-	"github.com/sirupsen/logrus"
 
 	cloud_data "github.com/deckhouse/deckhouse/go_lib/cloud-data"
 	"github.com/deckhouse/deckhouse/go_lib/cloud-data/app"
@@ -30,8 +29,9 @@ func main() {
 
 	app.InitFlags(kpApp)
 
+	logger := app.InitLogger()
+
 	kpApp.Action(func(context *kingpin.ParseContext) error {
-		logger := app.InitLogger()
 		client := app.InitClient(logger)
 		dynamicClient := app.InitDynamicClient(logger)
 		discoverer := NewDiscoverer(logger)
@@ -44,7 +44,7 @@ func main() {
 
 	_, err := kpApp.Parse(os.Args[1:])
 	if err != nil {
-		logrus.Error(err)
+		logger.Error(err.Error())
 		os.Exit(1)
 	}
 }

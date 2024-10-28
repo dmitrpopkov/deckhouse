@@ -17,9 +17,11 @@ package bootstrap
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/deckhouse/deckhouse/dhctl/pkg/kubernetes"
 	"reflect"
 	"time"
+
+	"github.com/deckhouse/deckhouse/dhctl/pkg/kubernetes"
+	"github.com/flant/shell-operator/pkg/unilogger"
 
 	"github.com/google/uuid"
 
@@ -102,13 +104,16 @@ type ClusterBootstrapper struct {
 	initializeNewAgent bool
 	// TODO(dhctl-for-commander): pass stateCache externally using params as in Destroyer, this variable will be unneeded then
 	lastState phases.DhctlState
+
+	logger *unilogger.Logger
 }
 
-func NewClusterBootstrapper(params *Params) *ClusterBootstrapper {
+func NewClusterBootstrapper(params *Params, logger *unilogger.Logger) *ClusterBootstrapper {
 	return &ClusterBootstrapper{
 		Params:                 params,
 		PhasedExecutionContext: phases.NewDefaultPhasedExecutionContext(params.OnPhaseFunc),
 		lastState:              params.InitialState,
+		logger:                 logger,
 	}
 }
 
@@ -397,7 +402,7 @@ func (b *ClusterBootstrapper) Bootstrap() error {
 		return nil
 	}
 
-	if err := RunBashiblePipeline(b.NodeInterface, metaConfig, nodeIP, devicePath); err != nil {
+	if err := RunBashiblePipeline(b.NodeInterface, metaConfig, nodeIP, devicePath, b.logger); err != nil {
 		return err
 	}
 

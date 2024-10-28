@@ -25,8 +25,8 @@ import (
 	"time"
 
 	kube "github.com/flant/kube-client/client"
-	_ "github.com/mattn/go-sqlite3"
 	log "github.com/sirupsen/logrus"
+	_ "github.com/mattn/go-sqlite3"
 
 	"d8.io/upmeter/pkg/db"
 	dbcontext "d8.io/upmeter/pkg/db/context"

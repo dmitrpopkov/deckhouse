@@ -26,8 +26,7 @@ import (
 	"github.com/Masterminds/semver/v3"
 	"github.com/flant/addon-operator/pkg/module_manager/scheduler/extenders"
 	scherror "github.com/flant/addon-operator/pkg/module_manager/scheduler/extenders/error"
-	"github.com/flant/addon-operator/pkg/utils/logger"
-	log "github.com/sirupsen/logrus"
+	log "github.com/flant/shell-operator/pkg/unilogger"
 	"k8s.io/utils/ptr"
 
 	"github.com/deckhouse/deckhouse/go_lib/dependency/versionmatcher"
@@ -47,15 +46,16 @@ var (
 var _ extenders.Extender = &Extender{}
 
 type Extender struct {
-	logger         logger.Logger
+	logger         *log.Logger
 	versionMatcher *versionmatcher.Matcher
 	mtx            sync.Mutex
 	err            error
 }
 
+// TODO: refactor
 func Instance() *Extender {
 	once.Do(func() {
-		instance = &Extender{logger: log.WithField("extender", Name), versionMatcher: versionmatcher.New(true)}
+		instance = &Extender{logger: log.Default().With("extender", Name), versionMatcher: versionmatcher.New(true)}
 	})
 	return instance
 }

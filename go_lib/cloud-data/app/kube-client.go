@@ -17,36 +17,36 @@ package app
 import (
 	"fmt"
 
-	log "github.com/sirupsen/logrus"
+	log "github.com/flant/shell-operator/pkg/unilogger"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/oidc"
 	"k8s.io/client-go/tools/clientcmd"
 )
 
-func InitClient(logger *log.Entry) *kubernetes.Clientset {
+func InitClient(logger *log.Logger) *kubernetes.Clientset {
 	config, err := clientcmd.BuildConfigFromFlags("", KubeConfig)
 	if err != nil {
-		logger.Fatal(fmt.Errorf("building kube client config: %v", err.Error()))
+		logger.Fatal(fmt.Sprintf("building kube client config: %v", err.Error()))
 	}
 
 	client, err := kubernetes.NewForConfig(config)
 	if err != nil {
-		logger.Fatal(fmt.Errorf("creating dynamic client: %v", err.Error()))
+		logger.Fatal(fmt.Sprintf("creating dynamic client: %v", err.Error()))
 	}
 
 	return client
 }
 
-func InitDynamicClient(logger *log.Entry) dynamic.Interface {
+func InitDynamicClient(logger *log.Logger) dynamic.Interface {
 	config, err := clientcmd.BuildConfigFromFlags("", KubeConfig)
 	if err != nil {
-		logger.Fatal(fmt.Errorf("building kube client config: %v", err.Error()))
+		logger.Fatal(fmt.Sprintf("building kube client config: %v", err.Error()))
 	}
 
 	dynClient, err := dynamic.NewForConfig(config)
 	if err != nil {
-		logger.Fatal(fmt.Errorf("creating dynamic client: %v", err.Error()))
+		logger.Fatal(fmt.Sprintf("creating dynamic client: %v", err.Error()))
 	}
 
 	return dynClient

@@ -21,7 +21,7 @@ import (
 	"github.com/flant/addon-operator/sdk"
 	"github.com/flant/shell-operator/pkg/kube/object_patch"
 	"github.com/flant/shell-operator/pkg/kube_events_manager/types"
-	log "github.com/sirupsen/logrus"
+	log "github.com/flant/shell-operator/pkg/unilogger"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -110,7 +110,7 @@ func systemReserve(input *go_hook.HookInput) error {
 	for _, ngRaw := range ngsSnapshot {
 		ng := ngRaw.(*NodeGroup)
 		skipMigration := ng.ResourceReservationMode != ""
-		input.LogEntry.Printf("NodeGroupName: %s, KubeletResourceReservationMode: %s, skipMigration: %t", ng.Name, ng.ResourceReservationMode, skipMigration)
+		input.Logger.Infof("NodeGroupName: %s, KubeletResourceReservationMode: %s, skipMigration: %t", ng.Name, ng.ResourceReservationMode, skipMigration)
 		if skipMigration {
 			continue
 		}

@@ -23,6 +23,7 @@ import (
 	"log/slog"
 	"time"
 
+	"github.com/flant/shell-operator/pkg/unilogger"
 	"github.com/gogo/protobuf/proto"
 	"google.golang.org/grpc"
 
@@ -46,13 +47,16 @@ type Service struct {
 	cacheDir string
 
 	schemaStore *config.SchemaStore
+
+	logger *unilogger.Logger
 }
 
-func New(podName, cacheDir string, schemaStore *config.SchemaStore) *Service {
+func New(podName, cacheDir string, schemaStore *config.SchemaStore, logger *unilogger.Logger) *Service {
 	return &Service{
 		podName:     podName,
 		cacheDir:    cacheDir,
 		schemaStore: schemaStore,
+		logger:      logger,
 	}
 }
 

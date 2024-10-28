@@ -18,7 +18,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/sirupsen/logrus"
+	"github.com/flant/shell-operator/pkg/unilogger"
 	"gopkg.in/alecthomas/kingpin.v2"
 )
 
@@ -29,7 +29,7 @@ var (
 	ListenAddress     = "127.0.0.1:9000"
 	Services          = make([]string, 0)
 	LoggerType        = loggerJSON
-	LoggerLevel       = int(logrus.InfoLevel)
+	LoggerLevel       = int(unilogger.LevelInfo)
 	AutoRenewIAMToken = 1 * time.Hour
 )
 

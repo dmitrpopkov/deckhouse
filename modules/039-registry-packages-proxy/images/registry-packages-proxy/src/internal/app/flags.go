@@ -17,7 +17,7 @@ package app
 import (
 	"flag"
 
-	"github.com/sirupsen/logrus"
+	"github.com/flant/shell-operator/pkg/unilogger"
 	"k8s.io/apimachinery/pkg/api/resource"
 )
 
@@ -27,7 +27,7 @@ type Config struct {
 	DisableCache       bool
 	CacheDirectory     string
 	CacheRetentionSize resource.Quantity
-	LogLevel           logrus.Level
+	LogLevel           unilogger.Level
 }
 
 func InitFlags() (*Config, error) {
@@ -49,7 +49,7 @@ func InitFlags() (*Config, error) {
 		return nil, err
 	}
 
-	config.LogLevel = logrus.Level(uint32(*v))
+	config.LogLevel = unilogger.Level(uint32(*v))
 
 	return config, nil
 }

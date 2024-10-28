@@ -27,7 +27,7 @@ import (
 
 	"github.com/Masterminds/sprig/v3"
 	"github.com/flant/shell-operator/pkg/metric_storage"
-	log "github.com/sirupsen/logrus"
+	"github.com/flant/shell-operator/pkg/unilogger"
 	"github.com/stretchr/testify/require"
 	"helm.sh/helm/v3/pkg/releaseutil"
 	appsv1 "k8s.io/api/apps/v1"
@@ -95,10 +95,10 @@ func setupControllerSettings(
 	rec := &deckhouseReleaseReconciler{
 		client:         cl,
 		dc:             dc,
-		logger:         log.New(),
+		logger:         unilogger.NewNop(),
 		moduleManager:  stubModulesManager{},
 		updateSettings: helpers.NewDeckhouseSettingsContainer(ds),
-		metricStorage:  metric_storage.NewMetricStorage(context.Background(), "", true),
+		metricStorage:  metric_storage.NewMetricStorage(context.Background(), "", true, unilogger.NewNop()),
 	}
 	rec.clusterUUID = rec.getClusterUUID(context.Background())
 

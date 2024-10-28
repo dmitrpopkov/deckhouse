@@ -1,17 +1,16 @@
 module safe-agent-updater
 
-go 1.21
-
-toolchain go1.21.5
+go 1.22
 
 require (
-	github.com/sirupsen/logrus v1.9.3
-	k8s.io/api v0.29.1
-	k8s.io/apimachinery v0.29.1
-	k8s.io/client-go v0.29.1
+	github.com/flant/shell-operator v1.4.15-slog2
+	k8s.io/api v0.29.8
+	k8s.io/apimachinery v0.29.8
+	k8s.io/client-go v0.29.8
 )
 
 require (
+	github.com/DataDog/gostackparse v0.7.0 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/emicklei/go-restful/v3 v3.11.2 // indirect
 	github.com/evanphx/json-patch v5.9.0+incompatible // indirect
@@ -36,7 +35,7 @@ require (
 	golang.org/x/sys v0.25.0 // indirect
 	golang.org/x/term v0.24.0 // indirect
 	golang.org/x/text v0.18.0 // indirect
-	golang.org/x/time v0.5.0 // indirect
+	golang.org/x/time v0.7.0 // indirect
 	google.golang.org/appengine v1.6.8 // indirect
 	google.golang.org/protobuf v1.34.2 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect

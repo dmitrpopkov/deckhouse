@@ -20,6 +20,7 @@ import (
 	"net"
 	"time"
 
+	"github.com/flant/shell-operator/pkg/unilogger"
 	"github.com/grpc-ecosystem/go-grpc-middleware/v2/interceptors/logging"
 	"github.com/grpc-ecosystem/go-grpc-middleware/v2/interceptors/recovery"
 	"github.com/mwitkow/grpc-proxy/proxy"
@@ -48,9 +49,9 @@ const requestsCounterMaxDuration = time.Hour * 2
 // Serve starts GRPC server
 func Serve(network, address string, parallelTasksLimit int) error {
 	dhctllog.InitLoggerWithOptions("silent", dhctllog.LoggerOptions{})
-	lvl := &slog.LevelVar{}
-	lvl.Set(slog.LevelDebug)
-	log := logger.NewLogger(lvl).With(slog.String("component", "server"))
+
+	log := unilogger.NewLogger(unilogger.Options{}).With(slog.String("component", "server"))
+	log.SetLevel(unilogger.LevelDebug)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})

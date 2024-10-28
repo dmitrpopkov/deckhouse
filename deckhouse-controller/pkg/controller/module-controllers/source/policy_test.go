@@ -18,7 +18,7 @@ import (
 	"os"
 	"testing"
 
-	log "github.com/sirupsen/logrus"
+	log "github.com/flant/shell-operator/pkg/unilogger"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"helm.sh/helm/v3/pkg/releaseutil"
@@ -49,7 +49,7 @@ func TestGetReleasePolicy(t *testing.T) {
 		downloadedModulesDir:    d8env.GetDownloadedModulesDir(),
 		dc:                      dependency.NewDependencyContainer(),
 		deckhouseEmbeddedPolicy: helpers.NewModuleUpdatePolicySpecContainer(embeddedDeckhousePolicy),
-		logger:                  log.New(),
+		logger:                  log.NewNop(),
 
 		moduleSourcesChecksum: make(sourceChecksum),
 	}

@@ -23,9 +23,9 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/flant/shell-operator/pkg/unilogger"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"github.com/sirupsen/logrus"
 
 	"github.com/deckhouse/deckhouse/go_lib/certificate"
 	. "github.com/deckhouse/deckhouse/testing/hooks"
@@ -254,9 +254,7 @@ func assertExistsTLSInValues(f *HookExecutionConfig) tlsTest {
 }
 
 func generateTestCert() certificate.Certificate {
-	l := logrus.NewEntry(logrus.New())
-
-	ca, _ := certificate.GenerateCA(l,
+	ca, _ := certificate.GenerateCA(unilogger.NewNop(),
 		"d8-module-name:module-name:internal",
 		certificate.WithKeyAlgo("ecdsa"),
 		certificate.WithKeySize(256),
@@ -267,7 +265,7 @@ func generateTestCert() certificate.Certificate {
 		"127.0.0.1",
 	}
 
-	cert, _ := certificate.GenerateSelfSignedCert(l,
+	cert, _ := certificate.GenerateSelfSignedCert(unilogger.NewNop(),
 		"d8-module-name:module-name:internal",
 		ca,
 		certificate.WithSANs(sans...),

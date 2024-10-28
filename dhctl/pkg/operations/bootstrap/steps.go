@@ -55,6 +55,7 @@ import (
 	"github.com/deckhouse/deckhouse/dhctl/pkg/util/tomb"
 	"github.com/deckhouse/deckhouse/go_lib/registry-packages-proxy/proxy"
 	"github.com/deckhouse/deckhouse/go_lib/registry-packages-proxy/registry"
+	"github.com/flant/shell-operator/pkg/unilogger"
 )
 
 const (
@@ -306,7 +307,7 @@ func (r *registryClientConfigGetter) Get(_ string) (*registry.ClientConfig, erro
 	return &r.ClientConfig, nil
 }
 
-func StartRegistryPackagesProxy(config config.RegistryData, clusterDomain string) error {
+func StartRegistryPackagesProxy(config config.RegistryData, clusterDomain string, logger *unilogger.Logger) error {
 	cert, err := generateTLSCertificate(clusterDomain)
 	if err != nil {
 		return fmt.Errorf("Failed to generate TLS certificate for registry proxy: %v", err)
@@ -325,7 +326,7 @@ func StartRegistryPackagesProxy(config config.RegistryData, clusterDomain string
 	}
 	srv := &http.Server{}
 	http.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) { _, _ = w.Write([]byte("ok")) })
-	proxy := proxy.NewProxy(srv, listener, clientConfigGetter, registryPackagesProxyLogger{}, &registry.DefaultClient{})
+	proxy := proxy.NewProxy(srv, listener, clientConfigGetter, logger, &registry.DefaultClient{})
 
 	go proxy.Serve()
 
@@ -401,7 +402,7 @@ func generateTLSCertificate(clusterDomain string) (*tls.Certificate, error) {
 	return tlsCert, nil
 }
 
-func RunBashiblePipeline(nodeInterface node.Interface, cfg *config.MetaConfig, nodeIP, devicePath string) error {
+func RunBashiblePipeline(nodeInterface node.Interface, cfg *config.MetaConfig, nodeIP, devicePath string, logger *unilogger.Logger) error {
 	var clusterDomain string
 	err := json.Unmarshal(cfg.ClusterConfig["clusterDomain"], &clusterDomain)
 	if err != nil {
@@ -412,7 +413,7 @@ func RunBashiblePipeline(nodeInterface node.Interface, cfg *config.MetaConfig, n
 	log.DebugLn("Starting registry packages proxy")
 
 	// we need clusterDomain to generate proper certificate for packages proxy
-	err = StartRegistryPackagesProxy(cfg.Registry, clusterDomain)
+	err = StartRegistryPackagesProxy(cfg.Registry, clusterDomain, logger)
 	if err != nil {
 		return fmt.Errorf("failed to start registry packages proxy: %v", err)
 	}
