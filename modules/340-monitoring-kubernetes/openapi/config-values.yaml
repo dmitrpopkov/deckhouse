@@ -3,10 +3,18 @@ properties:
   ebpfExporterEnabled:
     type: boolean
     default: true
+    x-doc-deprecated: true
     x-examples:
     - false
     description: |
-      Set to 'false' to disable ebpf_exporter in case it behaves incorrectly.
+      Does not affect the operation of module components.
+  oomKillExporterEnabled:
+    type: boolean
+    default: true
+    x-examples:
+    - false
+    description: |
+      Set to 'false' to disable oomKillExporter in case it behaves incorrectly.
   highAvailability:
     type: boolean
     x-examples: [true, false]
