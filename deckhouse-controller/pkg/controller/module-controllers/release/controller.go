@@ -19,7 +19,6 @@ import (
 	"crypto/md5"
 	"encoding/json"
 	"fmt"
-	"github.com/deckhouse/deckhouse/deckhouse-controller/pkg/controller/module-controllers/moduleloader"
 	"io"
 	"os"
 	"path"
@@ -58,6 +57,7 @@ import (
 
 	"github.com/deckhouse/deckhouse/deckhouse-controller/pkg/apis/deckhouse.io/v1alpha1"
 	"github.com/deckhouse/deckhouse/deckhouse-controller/pkg/controller/module-controllers/downloader"
+	"github.com/deckhouse/deckhouse/deckhouse-controller/pkg/controller/module-controllers/moduleloader"
 	"github.com/deckhouse/deckhouse/deckhouse-controller/pkg/controller/module-controllers/utils"
 	"github.com/deckhouse/deckhouse/deckhouse-controller/pkg/helpers"
 	deckhouseconfig "github.com/deckhouse/deckhouse/go_lib/deckhouse-config"

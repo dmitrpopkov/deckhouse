@@ -61,7 +61,7 @@ func RegisterController(runtimeManager manager.Manager, loader *moduleloader.Loa
 		return err
 	}
 
-	// sync modules, and run modules event loop
+	// sync modules and configs, and run modules event loop
 	r.init.Add(1)
 	if err = runtimeManager.Add(manager.RunnableFunc(r.syncModules)); err != nil {
 		return err
@@ -91,6 +91,7 @@ type moduleManager interface {
 func (r *reconciler) syncModules(ctx context.Context) error {
 	defer r.init.Done()
 
+	// wait until module manager init
 	if err := wait.PollUntilContextCancel(ctx, time.Second, true, func(_ context.Context) (bool, error) {
 		return r.moduleManager.AreModulesInited(), nil
 	}); err != nil {
@@ -117,7 +118,7 @@ func (r *reconciler) syncModules(ctx context.Context) error {
 	return r.runModuleEventLoop(ctx)
 }
 
-// syncModuleConfigs syncs moduleconfigs' status at start up
+// syncModuleConfigs syncs module configs at start up
 func (r *reconciler) syncModuleConfigs(ctx context.Context) error {
 	return retry.OnError(retry.DefaultRetry, apierrors.IsServiceUnavailable, func() error {
 		configs := new(v1alpha1.ModuleConfigList)

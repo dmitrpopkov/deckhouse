@@ -217,14 +217,14 @@ func NewDeckhouseController(ctx context.Context, config *rest.Config, mm *module
 
 // Start loads modules from FS, starts pluggable controllers and runs deckhouse config event loop
 func (c *DeckhouseController) Start(ctx context.Context, deckhouseConfigCh <-chan utils.Values) error {
-	// load and ensure modules from fs at start
-	if err := c.moduleLoader.LoadModulesFromFS(ctx); err != nil {
-		return err
-	}
-
 	// run preflight checks first
 	if d8env.GetDownloadedModulesDir() != "" {
 		c.startPluggableModulesControllers(ctx)
+	}
+
+	// load and ensure modules from fs at start
+	if err := c.moduleLoader.LoadModulesFromFS(ctx); err != nil {
+		return err
 	}
 
 	go c.runDeckhouseConfigObserver(deckhouseConfigCh)

@@ -18,11 +18,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/deckhouse/deckhouse/deckhouse-controller/pkg/apis/deckhouse.io/v1alpha1"
 	"io/fs"
-	corev1 "k8s.io/api/core/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -31,13 +27,18 @@ import (
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/deckhouse/deckhouse/deckhouse-controller/pkg/apis/deckhouse.io/v1alpha1"
 	"github.com/deckhouse/deckhouse/go_lib/deckhouse-config/conversion"
 	d8env "github.com/deckhouse/deckhouse/go_lib/deckhouse-config/env"
 	"github.com/deckhouse/deckhouse/go_lib/dependency/extenders"
 	"github.com/flant/addon-operator/pkg/module_manager/loader"
 	"github.com/flant/addon-operator/pkg/module_manager/models/modules"
 	"github.com/flant/addon-operator/pkg/utils"
+	log "github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v3"
+	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 const (
@@ -135,9 +136,9 @@ func (l *Loader) processModuleDefinition(def *Definition) (*Module, error) {
 
 	// load conversions
 	if _, err = os.Stat(filepath.Join(def.Path, "openapi", "conversions")); err == nil {
-		//log.Debugf("conversions for the '%q' module found", valuesModuleName)
+		log.Debugf("conversions for the '%q' module found", valuesModuleName)
 		if err = conversion.Store().Add(def.Name, filepath.Join(def.Path, "openapi", "conversions")); err != nil {
-			//log.Debugf("loading conversions for the '%q' module failed", valuesModuleName)
+			log.Debugf("loading conversions for the '%q' module failed", valuesModuleName)
 			return nil, err
 		}
 	} else {
@@ -145,7 +146,7 @@ func (l *Loader) processModuleDefinition(def *Definition) (*Module, error) {
 			//log.Debugf("loading conversions for the '%q' module failed", valuesModuleName)
 			return nil, err
 		}
-		//log.Debugf("conversions for the '%q' module not found", valuesModuleName)
+		log.Debugf("conversions for the '%q' module not found", valuesModuleName)
 	}
 
 	// load constrains
@@ -158,8 +159,7 @@ func (l *Loader) processModuleDefinition(def *Definition) (*Module, error) {
 
 func validateModuleName(name string) error {
 	// Check if name is consistent for conversions between kebab-case and camelCase.
-	valuesKey := utils.ModuleNameToValuesKey(name)
-	restoredName := utils.ModuleNameFromValuesKey(valuesKey)
+	restoredName := utils.ModuleNameFromValuesKey(utils.ModuleNameToValuesKey(name))
 
 	if name != restoredName {
 		return fmt.Errorf("'%s' name should be in kebab-case and be restorable from camelCase: consider renaming to '%s'", name, restoredName)
@@ -191,7 +191,7 @@ func (l *Loader) LoadModulesFromFS(ctx context.Context) error {
 			}
 
 			if _, ok := l.modules[def.Name]; ok {
-				//log.Warnf("Module %q is already exists. Skipping module from %q", def.Name, def.Path)
+				log.Warnf("the '%q' module is already exists. Skipping module from %q", def.Name, def.Path)
 				continue
 			}
 
@@ -320,7 +320,7 @@ func resolveDirEntry(dirPath string, entry os.DirEntry) (string, string, error) 
 	}
 
 	if name != utils.ValuesFileName {
-		//log.Warnf("Ignore '%s' while searching for modules", absPath)
+		log.Warnf("ignore '%s' while searching for modules", absPath)
 	}
 
 	return "", "", nil
