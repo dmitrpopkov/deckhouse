@@ -23,6 +23,10 @@ import (
 	"github.com/deckhouse/deckhouse/go_lib/hooks/update"
 )
 
+const (
+	ModuleUpdatePolicyModeIgnore = "Ignore"
+)
+
 var (
 	ModuleUpdatePolicyGVR = schema.GroupVersionResource{
 		Group:    SchemeGroupVersion.Group,

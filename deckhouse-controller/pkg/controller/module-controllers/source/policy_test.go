@@ -34,7 +34,7 @@ import (
 )
 
 func TestGetReleasePolicy(t *testing.T) {
-	embeddedDeckhousePolicy := &v1alpha1.ModuleUpdatePolicySpec{
+	embeddedPolicy := &v1alpha1.ModuleUpdatePolicySpec{
 		Update: v1alpha1.ModuleUpdatePolicySpecUpdate{
 			Mode: "Auto",
 		},
@@ -44,14 +44,12 @@ func TestGetReleasePolicy(t *testing.T) {
 	_ = v1alpha1.SchemeBuilder.AddToScheme(sc)
 	cl := fake.NewClientBuilder().WithScheme(sc).WithStatusSubresource(&v1alpha1.ModuleSource{}).Build()
 
-	c := &moduleSourceReconciler{
-		client:                  cl,
-		downloadedModulesDir:    d8env.GetDownloadedModulesDir(),
-		dc:                      dependency.NewDependencyContainer(),
-		deckhouseEmbeddedPolicy: helpers.NewModuleUpdatePolicySpecContainer(embeddedDeckhousePolicy),
-		logger:                  log.New(),
-
-		moduleSourcesChecksum: make(sourceChecksum),
+	c := &reconciler{
+		client:               cl,
+		downloadedModulesDir: d8env.GetDownloadedModulesDir(),
+		dependencyContainer:  dependency.NewDependencyContainer(),
+		embeddedPolicy:       helpers.NewModuleUpdatePolicySpecContainer(embeddedPolicy),
+		log:                  log.New(),
 	}
 
 	t.Run("Exact match policy", func(t *testing.T) {
@@ -69,7 +67,7 @@ func TestGetReleasePolicy(t *testing.T) {
 				},
 			},
 		}
-		mup, err := c.getReleasePolicy("test-1", "test-module-1", []v1alpha1.ModuleUpdatePolicy{policy})
+		mup, err := c.releasePolicy("test-1", "test-module-1", []v1alpha1.ModuleUpdatePolicy{policy})
 		require.NoError(t, err)
 		assert.Equal(t, "test-1", mup.Name)
 	})
@@ -89,7 +87,7 @@ func TestGetReleasePolicy(t *testing.T) {
 				},
 			},
 		}
-		mup, err := c.getReleasePolicy("test-2", "test-module-2", []v1alpha1.ModuleUpdatePolicy{policy})
+		mup, err := c.releasePolicy("test-2", "test-module-2", []v1alpha1.ModuleUpdatePolicy{policy})
 		require.NoError(t, err)
 		assert.Equal(t, "test-2", mup.Name)
 	})
@@ -109,7 +107,7 @@ func TestGetReleasePolicy(t *testing.T) {
 				},
 			},
 		}
-		mup, err := c.getReleasePolicy("test-3", "test-module-3", []v1alpha1.ModuleUpdatePolicy{policy})
+		mup, err := c.releasePolicy("test-3", "test-module-3", []v1alpha1.ModuleUpdatePolicy{policy})
 		require.NoError(t, err)
 		assert.Equal(t, "test-3", mup.Name)
 	})
@@ -129,13 +127,13 @@ func TestGetReleasePolicy(t *testing.T) {
 				},
 			},
 		}
-		mup, err := c.getReleasePolicy("test-4", "test-module-4", []v1alpha1.ModuleUpdatePolicy{policy})
+		mup, err := c.releasePolicy("test-4", "test-module-4", []v1alpha1.ModuleUpdatePolicy{policy})
 		require.NoError(t, err)
 		assert.Equal(t, "", mup.Name)
 	})
 
 	t.Run("No policy set", func(t *testing.T) {
-		mup, err := c.getReleasePolicy("test-5", "test-module-5", []v1alpha1.ModuleUpdatePolicy{})
+		mup, err := c.releasePolicy("test-5", "test-module-5", []v1alpha1.ModuleUpdatePolicy{})
 		require.NoError(t, err)
 		assert.Equal(t, "", mup.Name)
 	})
@@ -151,11 +149,11 @@ func TestGetReleasePolicy(t *testing.T) {
 			_ = yaml.Unmarshal([]byte(manifest), &p)
 			res = append(res, p)
 		}
-		mup, err := c.getReleasePolicy("foxtrot", "parca", res)
+		mup, err := c.releasePolicy("foxtrot", "parca", res)
 		require.NoError(t, err)
 		assert.Equal(t, "foxtrot-alpha", mup.Name)
 
-		mup, err = c.getReleasePolicy("deckhouse-prod", "deckhouse-admin", res)
+		mup, err = c.releasePolicy("deckhouse-prod", "deckhouse-admin", res)
 		require.NoError(t, err)
 		assert.Equal(t, "deckhouse-prod", mup.Name)
 	})

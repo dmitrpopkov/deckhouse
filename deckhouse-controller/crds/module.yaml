@@ -22,28 +22,32 @@ spec:
         openAPIV3Schema:
           type: object
           description: |
-            Shows basic information about the Deckhouse module.
+            The module representation.
 
-            This resource is intended **only for getting information** about the module and cannot be changed (read-only).
           properties:
+            spec:
+              type: object
+              properties:
+                selectedSource:
+                  type: string
+                  description: The source from which this module can be downloaded.
             properties:
               type: object
               properties:
+                availableSources:
+                  type: array
+                  description: The module available sources.
+                  items:
+                    type: string
                 weight:
                   type: integer
-                  description: 'Module weight (priority).'
-                state:
-                  type: string
-                  description: 'Module state.'
-                  enum:
-                    - Enabled
-                    - Disabled
+                  description: The module weight (priority).
                 source:
                   type: string
-                  description: 'ModuleSource name of the module if provided by one (otherwise empty).'
+                  description: The source that the module uses.
                 stage:
                   type: string
-                  description: 'The current stage of the module life cycle.'
+                  description: The current stage of the module lifecycle.
                   enum:
                     - Sandbox
                     - Incubating
@@ -51,44 +55,18 @@ spec:
                     - Deprecated
                 description:
                   type: string
-                  description: 'Module description.'
+                  description: The module description.
             status:
               type: object
               properties:
-                status:
+                phase:
                   type: string
-                  description: "Module state explanation, version warning or last error"
+                  description: The module phase.
                 message:
                   type: string
-                  description: "Additional information"
+                  description: The additional information.
                 hooksState:
                   type: string
                   description: "Hooks status report"
       subresources:
         status: {}
-      additionalPrinterColumns:
-        - name: weight
-          jsonPath: .properties.weight
-          type: integer
-          description: 'Module weight (priority).'
-        - name: state
-          jsonPath: .properties.state
-          type: string
-          description: 'Module state. Enabled or Disabled.'
-        - name: source
-          jsonPath: .properties.source
-          type: string
-          description: 'ModuleSource name of the module if provided by one (otherwise empty).'
-        - name: stage
-          jsonPath: .properties.stage
-          type: string
-          description: 'The current stage of the module life cycle'
-        - name: Status
-          type: string
-          description: "Module state explanation or last error"
-          jsonPath: .status.status
-        - name: Message
-          type: string
-          description: "Additional information"
-          jsonPath: .status.message
-          priority: 1

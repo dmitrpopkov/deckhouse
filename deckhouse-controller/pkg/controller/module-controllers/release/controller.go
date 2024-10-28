@@ -56,8 +56,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	"github.com/deckhouse/deckhouse/deckhouse-controller/pkg/apis/deckhouse.io/v1alpha1"
-	"github.com/deckhouse/deckhouse/deckhouse-controller/pkg/controller/models"
 	"github.com/deckhouse/deckhouse/deckhouse-controller/pkg/controller/module-controllers/downloader"
+	"github.com/deckhouse/deckhouse/deckhouse-controller/pkg/controller/module-controllers/moduleloader"
 	"github.com/deckhouse/deckhouse/deckhouse-controller/pkg/controller/module-controllers/utils"
 	"github.com/deckhouse/deckhouse/deckhouse-controller/pkg/helpers"
 	deckhouseconfig "github.com/deckhouse/deckhouse/go_lib/deckhouse-config"
@@ -499,7 +499,6 @@ func (r *moduleReleaseReconciler) reconcilePendingRelease(ctx context.Context, m
 	if releaseUpdater.LastReleaseDeployed() {
 		// latest release deployed
 		deployedRelease := *releaseUpdater.DeployedRelease()
-		deckhouseconfig.Service().AddModuleNameToSource(deployedRelease.Spec.ModuleName, deployedRelease.GetModuleSource())
 
 		// check symlink exists on FS, relative symlink
 		modulePath := generateModulePath(moduleName, deployedRelease.Spec.Version.String())
@@ -1044,7 +1043,7 @@ func (r *moduleReleaseReconciler) parseNotificationConfig(ctx context.Context) (
 	return settings.NotificationConfig, nil
 }
 
-func validateModule(def models.DeckhouseModuleDefinition, values addonutils.Values) error {
+func validateModule(def moduleloader.Definition, values addonutils.Values) error {
 	if def.Weight < 900 || def.Weight > 999 {
 		return fmt.Errorf("external module weight must be between 900 and 999")
 	}

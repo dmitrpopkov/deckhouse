@@ -20,6 +20,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"path/filepath"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
+	"sigs.k8s.io/controller-runtime/pkg/event"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	"slices"
 	"sort"
 	"sync"
 	"time"
@@ -51,53 +56,44 @@ import (
 )
 
 const (
-	defaultScanInterval        = 3 * time.Minute
-	registryChecksumAnnotation = "modules.deckhouse.io/registry-spec-checksum"
+	controllerName = "d8-source-controller"
+
+	deckhouseNamespace = "d8-system"
+
+	deckhouseDiscoverySecret = "deckhouse-discovery"
+
+	moduleSourceFinalizer = "modules.deckhouse.io/release-exists"
+
+	moduleSourceAnnotationForceDelete      = "modules.deckhouse.io/force-delete"
+	moduleSourceAnnotationRegistryChecksum = "modules.deckhouse.io/registry-spec-checksum"
+
+	defaultScanInterval = 3 * time.Minute
+
+	maxConcurrentReconciles = 3
+	cacheSyncTimeout        = 3 * time.Minute
 )
 
-type moduleSourceReconciler struct {
-	client               client.Client
-	downloadedModulesDir string
-
-	deckhouseEmbeddedPolicy *helpers.ModuleUpdatePolicySpecContainer
-
-	dc dependency.Container
-
-	logger logger.Logger
-
-	rwlock                sync.RWMutex
-	moduleSourcesChecksum sourceChecksum
-	preflightCountDown    *sync.WaitGroup
-	clusterUUID           string
-}
-
-func NewModuleSourceController(mgr manager.Manager, dc dependency.Container, embeddedPolicyContainer *helpers.ModuleUpdatePolicySpecContainer,
-	preflightCountDown *sync.WaitGroup,
-) error {
-	lg := log.WithField("component", "ModuleSourceController")
-
-	r := &moduleSourceReconciler{
-		client:               mgr.GetClient(),
+func RegisterController(runtimeManager manager.Manager, dc dependency.Container, embeddedPolicy *helpers.ModuleUpdatePolicySpecContainer, preflightCountDown *sync.WaitGroup) error {
+	r := &reconciler{
+		client:               runtimeManager.GetClient(),
+		log:                  log.WithField("component", "ModuleSourceController"),
 		downloadedModulesDir: d8env.GetDownloadedModulesDir(),
-		dc:                   dc,
-		logger:               lg,
-
-		deckhouseEmbeddedPolicy: embeddedPolicyContainer,
-		moduleSourcesChecksum:   make(sourceChecksum),
-
-		preflightCountDown: preflightCountDown,
+		embeddedPolicy:       embeddedPolicy,
+		dependencyContainer:  dc,
 	}
 
-	// Add Preflight Check
-	err := mgr.Add(manager.RunnableFunc(r.PreflightCheck))
-	if err != nil {
+	preflightCountDown.Add(1)
+
+	// add preflight to set the cluster UUID
+	if err := runtimeManager.Add(manager.RunnableFunc(func(ctx context.Context) error {
+		return r.setClusterUUID(ctx, preflightCountDown)
+	})); err != nil {
 		return err
 	}
-	r.preflightCountDown.Add(1)
 
-	ctr, err := controller.New("module-source", mgr, controller.Options{
-		MaxConcurrentReconciles: 3,
-		CacheSyncTimeout:        3 * time.Minute,
+	sourceController, err := controller.New(controllerName, runtimeManager, controller.Options{
+		MaxConcurrentReconciles: maxConcurrentReconciles,
+		CacheSyncTimeout:        cacheSyncTimeout,
 		NeedLeaderElection:      ptr.To(false),
 		Reconciler:              r,
 	})
@@ -105,340 +101,292 @@ func NewModuleSourceController(mgr manager.Manager, dc dependency.Container, emb
 		return err
 	}
 
-	return ctrl.NewControllerManagedBy(mgr).
+	return ctrl.NewControllerManagedBy(runtimeManager).
 		For(&v1alpha1.ModuleSource{}).
+		Watches(&v1alpha1.Module{}, handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, obj client.Object) []reconcile.Request {
+			return []reconcile.Request{{NamespacedName: types.NamespacedName{Name: obj.(*v1alpha1.Module).Properties.Source}}}
+		}), builder.WithPredicates(predicate.Funcs{
+			UpdateFunc: func(updateEvent event.UpdateEvent) bool {
+				oldModule := updateEvent.ObjectOld.(*v1alpha1.Module)
+				module := updateEvent.ObjectNew.(*v1alpha1.Module)
+				if !oldModule.IsEnabled() && module.IsEnabled() {
+					return true
+				}
+				return false
+			},
+		})).
 		WithEventFilter(predicate.GenerationChangedPredicate{}).
-		Complete(ctr)
+		Complete(sourceController)
 }
 
-func (r *moduleSourceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	var result ctrl.Result
-	sourceName := req.Name
+type reconciler struct {
+	client              client.Client
+	log                 logger.Logger
+	dependencyContainer dependency.Container
+	embeddedPolicy      *helpers.ModuleUpdatePolicySpecContainer
 
-	var ms v1alpha1.ModuleSource
-	err := r.client.Get(ctx, req.NamespacedName, &ms)
-	if err != nil {
-		// The ModuleSource resource may no longer exist, in which case we stop
-		// processing.
-		if apierrors.IsNotFound(err) {
-			// if source is not exists anymore - drop the checksum cache
-			r.saveSourceChecksums(sourceName, make(moduleChecksum))
-			return result, nil
-		}
-
-		return ctrl.Result{Requeue: true}, err
-	}
-
-	if !ms.DeletionTimestamp.IsZero() {
-		return r.deleteReconcile(ctx, &ms)
-	}
-
-	return r.createOrUpdateReconcile(ctx, &ms)
+	downloadedModulesDir string
+	clusterUUID          string
 }
 
-func (r *moduleSourceReconciler) PreflightCheck(ctx context.Context) (err error) {
-	defer func() {
-		if err == nil {
-			r.preflightCountDown.Done()
-		}
-	}()
+func (r *reconciler) setClusterUUID(ctx context.Context, preflight *sync.WaitGroup) error {
+	defer preflight.Done()
 
-	r.clusterUUID = r.getClusterUUID(ctx)
-	return nil
-}
-
-func (r *moduleSourceReconciler) getClusterUUID(ctx context.Context) string {
-	var secret corev1.Secret
-	key := types.NamespacedName{Namespace: "d8-system", Name: "deckhouse-discovery"}
-	err := r.client.Get(ctx, key, &secret)
-	if err != nil {
-		r.logger.Warnf("Read clusterUUID from secret %s failed: %v. Generating random uuid", key, err)
-		return uuid.Must(uuid.NewV4()).String()
+	// attempt to read the cluster UUID from a secret
+	secret := new(corev1.Secret)
+	if err := r.client.Get(ctx, types.NamespacedName{Namespace: deckhouseNamespace, Name: deckhouseDiscoverySecret}, secret); err != nil {
+		r.log.Warnf("failed to read clusterUUID from the 'deckhouse-discovery' secret: %v. Generating random uuid", err)
+		r.clusterUUID = uuid.Must(uuid.NewV4()).String()
+		return nil
 	}
 
 	if clusterUUID, ok := secret.Data["clusterUUID"]; ok {
-		return string(clusterUUID)
+		r.clusterUUID = string(clusterUUID)
+		return nil
 	}
 
-	return uuid.Must(uuid.NewV4()).String()
+	// generate a random UUID if the key is missing
+	r.clusterUUID = uuid.Must(uuid.NewV4()).String()
+	return nil
 }
 
-func (r *moduleSourceReconciler) createOrUpdateReconcile(ctx context.Context, ms *v1alpha1.ModuleSource) (ctrl.Result, error) {
-	ms.Status.Msg = ""
-	ms.Status.ModuleErrors = make([]v1alpha1.ModuleError, 0)
-
-	opts := controllerUtils.GenerateRegistryOptionsFromModuleSource(ms, r.clusterUUID)
-
-	regCli, err := r.dc.GetRegistryClient(ms.Spec.Registry.Repo, opts...)
-	if err != nil {
-		ms.Status.Msg = err.Error()
-		if e := r.updateModuleSourceStatus(ctx, ms); e != nil {
-			return ctrl.Result{Requeue: true}, e
+func (r *reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	moduleSource := new(v1alpha1.ModuleSource)
+	if err := r.client.Get(ctx, req.NamespacedName, moduleSource); err != nil {
+		if apierrors.IsNotFound(err) {
+			return ctrl.Result{}, nil
 		}
+		return ctrl.Result{Requeue: true}, err
+	}
 
+	// handle delete event
+	if !moduleSource.DeletionTimestamp.IsZero() {
+		return r.deleteModuleSource(ctx, moduleSource)
+	}
+
+	// handle create/update events
+	return r.handleModuleSource(ctx, moduleSource)
+}
+
+func (r *reconciler) handleModuleSource(ctx context.Context, source *v1alpha1.ModuleSource) (ctrl.Result, error) {
+	// reset status fields
+	source.Status.Msg = ""
+	source.Status.ModuleErrors = make([]v1alpha1.ModuleError, 0)
+
+	// generate options for connecting to the registry
+	opts := controllerUtils.GenerateRegistryOptionsFromModuleSource(source, r.clusterUUID)
+
+	// create a registry client
+	registryClient, err := r.dependencyContainer.GetRegistryClient(source.Spec.Registry.Repo, opts...)
+	if err != nil {
+		source.Status.Msg = err.Error()
+		if err = r.updateModuleSourceStatus(ctx, source); err != nil {
+			return ctrl.Result{Requeue: true}, err
+		}
 		// error can occur on wrong auth only, we don't want to requeue the source until auth is fixed
 		return ctrl.Result{Requeue: false}, nil
 	}
 
-	moduleNames, err := regCli.ListTags(ctx)
-	if err != nil {
-		ms.Status.Msg = err.Error()
-		if e := r.updateModuleSourceStatus(ctx, ms); e != nil {
-			return ctrl.Result{Requeue: true}, e
-		}
-		return ctrl.Result{Requeue: true}, err
-	}
-
-	// check, by means of comparing registry settings to the checkSum annotation, if new registry settings should be propagated to deployed module release
-	updateNeeded, err := r.checkAndPropagateRegistrySettings(ctx, ms)
+	// sync registry settings if they have changed check
+	shouldRequeue, err := r.syncRegistrySettings(ctx, source)
 	if err != nil {
 		return ctrl.Result{Requeue: true}, err
 	}
-	// new registry settings checksum should be applied to module source
-	if updateNeeded {
-		if err := r.client.Update(ctx, ms); err != nil {
+	if shouldRequeue {
+		// new registry settings checksum should be applied to module source
+		if err = r.client.Update(ctx, source); err != nil {
 			return ctrl.Result{Requeue: true}, err
 		}
-		// requeue ms after modifying annotation
+		// requeue moduleSource after modifying annotation
 		return ctrl.Result{Requeue: true}, nil
+	}
+
+	// list available modules(tags) from the registry
+	moduleNames, err := registryClient.ListTags(ctx)
+	if err != nil {
+		source.Status.Msg = err.Error()
+		if err = r.updateModuleSourceStatus(ctx, source); err != nil {
+			return ctrl.Result{Requeue: true}, err
+		}
+		return ctrl.Result{Requeue: true}, err
 	}
 
 	sort.Strings(moduleNames)
 
-	// form available modules structure
 	availableModules := make([]v1alpha1.AvailableModule, 0, len(moduleNames))
-
-	ms.Status.ModulesCount = len(moduleNames)
-
-	modulesChecksums := r.getModuleSourceChecksum(ms.Name)
-
-	md := downloader.NewModuleDownloader(r.dc, r.downloadedModulesDir, ms, opts)
+	source.Status.ModulesCount = len(moduleNames)
 
 	// get all policies regardless of their labels
-	var policies v1alpha1.ModuleUpdatePolicyList
-	err = r.client.List(ctx, &policies)
-	if err != nil {
+	policies := new(v1alpha1.ModuleUpdatePolicyList)
+	if err = r.client.List(ctx, policies); err != nil {
 		return ctrl.Result{Requeue: true}, err
 	}
+
+	md := downloader.NewModuleDownloader(r.dependencyContainer, r.downloadedModulesDir, source, opts)
 
 	for _, moduleName := range moduleNames {
 		if moduleName == "modules" {
-			r.logger.Warn("'modules' name for module is forbidden. Skip module.")
+			r.log.Warn("the 'modules' name is a forbidden name. Skip the module.")
 			continue
 		}
 
-		newChecksum, av, err := r.processSourceModule(ctx, md, ms, moduleName, modulesChecksums[moduleName], policies.Items)
-		availableModules = append(availableModules, av)
+		available, err := r.processModule(ctx, md, source, moduleName, policies.Items)
 		if err != nil {
-			ms.Status.ModuleErrors = append(ms.Status.ModuleErrors, v1alpha1.ModuleError{
+			// collect modules errors for reporting
+			source.Status.ModuleErrors = append(source.Status.ModuleErrors, v1alpha1.ModuleError{
 				Name:  moduleName,
 				Error: err.Error(),
 			})
-			continue
 		}
-
-		if newChecksum != "" {
-			modulesChecksums[moduleName] = newChecksum
-		}
+		availableModules = append(availableModules, available)
 	}
 
-	ms.Status.AvailableModules = availableModules
+	source.Status.AvailableModules = availableModules
 
-	if len(ms.Status.ModuleErrors) > 0 {
-		ms.Status.Msg = "Some errors occurred. Inspect status for details"
+	if len(source.Status.ModuleErrors) > 0 {
+		source.Status.Msg = "Some errors occurred. Inspect status for details"
 	}
 
-	err = r.updateModuleSourceStatus(ctx, ms)
-	if err != nil {
+	if err = r.updateModuleSourceStatus(ctx, source); err != nil {
 		return ctrl.Result{Requeue: true}, err
 	}
-
-	// save checksums
-	r.saveSourceChecksums(ms.Name, modulesChecksums)
 
 	// everything is ok, check source on the other iteration
 	return ctrl.Result{RequeueAfter: defaultScanInterval}, nil
 }
 
-func (r *moduleSourceReconciler) deleteReconcile(ctx context.Context, ms *v1alpha1.ModuleSource) (ctrl.Result, error) {
-	var result ctrl.Result
+func (r *reconciler) processModule(ctx context.Context, md *downloader.ModuleDownloader, source *v1alpha1.ModuleSource, moduleName string, policies []v1alpha1.ModuleUpdatePolicy) (v1alpha1.AvailableModule, error) {
+	availableModule := v1alpha1.AvailableModule{Name: moduleName}
+	for _, available := range source.Status.AvailableModules {
+		if available.Name == moduleName {
+			availableModule = available
+		}
+	}
 
-	if controllerutil.ContainsFinalizer(ms, "modules.deckhouse.io/release-exists") {
-		v := ms.GetAnnotations()["modules.deckhouse.io/force-delete"]
-		if v != "true" {
-			// check releases
-			var releases v1alpha1.ModuleReleaseList
+	// get an update policy for the module or, if there is no matching policy, use the embedded on
+	policy, err := r.releasePolicy(source.Name, moduleName, policies)
+	if err != nil {
+		return availableModule, err
+	}
+	availableModule.Policy = policy.Name
 
-			err := r.client.List(ctx, &releases, client.MatchingLabels{"source": ms.Name, "status": "deployed"})
-			if err != nil {
+	// skip processing if the policy mode is "Ignore"
+	if policy.Spec.Update.Mode == v1alpha1.ModuleUpdatePolicyModeIgnore {
+		return availableModule, nil
+	}
+
+	// add the source to the module or create a new module with this source
+	ensureRelease, err := r.ensureModule(ctx, source.Name, policy.Spec.ReleaseChannel, moduleName)
+	if err != nil {
+		return availableModule, err
+	}
+
+	// download module metadata from the specified release channel
+	meta, err := md.DownloadMetadataFromReleaseChannel(moduleName, policy.Spec.ReleaseChannel, availableModule.Checksum)
+	if err != nil {
+		return availableModule, err
+	}
+
+	// if release is changed ensure module release
+	if ensureRelease && availableModule.Checksum != meta.Checksum {
+		availableModule.Checksum = meta.Checksum
+		if err = r.ensureModuleRelease(ctx, source.Name, source.GetUID(), moduleName, policy.Name, meta); err != nil {
+			return availableModule, err
+		}
+	}
+
+	return availableModule, nil
+}
+
+func (r *reconciler) deleteModuleSource(ctx context.Context, source *v1alpha1.ModuleSource) (ctrl.Result, error) {
+	if controllerutil.ContainsFinalizer(source, moduleSourceFinalizer) {
+		if source.GetAnnotations()[moduleSourceAnnotationForceDelete] != "true" {
+			// list deployed ModuleReleases associated with the ModuleSource
+			releases := new(v1alpha1.ModuleReleaseList)
+			if err := r.client.List(ctx, releases, client.MatchingLabels{"source": source.Name, "status": "deployed"}); err != nil {
 				return ctrl.Result{Requeue: true}, err
 			}
 
+			// prevent deletion if there are deployed releases
 			if len(releases.Items) > 0 {
-				ms.Status.Msg = "ModuleSource contains at least 1 Deployed release and cannot be deleted. Please delete target ModuleReleases manually to continue"
-				if err := r.updateModuleSourceStatus(ctx, ms); err != nil {
+				source.Status.Msg = "The ModuleSource contains at least 1 Deployed release and cannot be deleted. Please delete target ModuleReleases manually to continue"
+				if err := r.updateModuleSourceStatus(ctx, source); err != nil {
 					return ctrl.Result{Requeue: true}, nil
 				}
-
 				return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
+			}
+
+			for _, module := range source.Status.AvailableModules {
+				if err := r.cleanSourceInModule(ctx, source.Name, module.Name); err != nil {
+					return ctrl.Result{Requeue: true}, err
+				}
 			}
 		}
 
-		controllerutil.RemoveFinalizer(ms, "modules.deckhouse.io/release-exists")
+		controllerutil.RemoveFinalizer(source, moduleSourceFinalizer)
 
-		err := r.client.Update(ctx, ms)
-		if err != nil {
+		if err := r.client.Update(ctx, source); err != nil {
 			return ctrl.Result{Requeue: true}, err
 		}
 	}
 
-	r.saveSourceChecksums(ms.Name, make(moduleChecksum))
-	return result, nil
+	return ctrl.Result{}, nil
 }
 
-func (r *moduleSourceReconciler) processSourceModule(ctx context.Context, md *downloader.ModuleDownloader, ms *v1alpha1.ModuleSource, moduleName, moduleChecksum string, policies []v1alpha1.ModuleUpdatePolicy) ( /*checksum*/ string, v1alpha1.AvailableModule, error) {
-	av := v1alpha1.AvailableModule{
-		Name:       moduleName,
-		Policy:     "",
-		Overridden: false,
+func (r *reconciler) cleanSourceInModule(ctx context.Context, sourceName, moduleName string) error {
+	module := new(v1alpha1.Module)
+	if err := r.client.Get(ctx, client.ObjectKey{Name: moduleName}, module); err != nil {
+		return err
 	}
 
-	// check if we have a ModulePullOverride for source/module
-	exists, err := r.isModulePullOverrideExists(ctx, ms.Name, moduleName)
-	if err != nil {
-		r.logger.Warnf("Unexpected error on getting ModulePullOverride for %s/%s", ms.Name, moduleName)
-		return "", av, err
-	}
-
-	if exists {
-		av.Overridden = true
-		return "", av, nil
-	}
-	// get an update policy for the moduleName or, if there is no matching policy, use the embedded on
-	policy, err := r.getReleasePolicy(ms.Name, moduleName, policies)
-	if err != nil {
-		return "", av, err
-	}
-	av.Policy = policy.Name
-
-	if policy.Spec.Update.Mode == "Ignore" {
-		return "", av, nil
-	}
-
-	downloadResult, err := md.DownloadMetadataFromReleaseChannel(moduleName, policy.Spec.ReleaseChannel, moduleChecksum)
-	if err != nil {
-		return "", av, err
-	}
-
-	if downloadResult.Checksum == moduleChecksum {
-		r.logger.Infof("Module %q checksum in the %q release channel has not been changed. Skip update.", moduleName, policy.Spec.ReleaseChannel)
-		return "", av, nil
-	}
-
-	err = r.createModuleRelease(ctx, ms, moduleName, policy.Name, downloadResult)
-	if err != nil {
-		return "", av, err
-	}
-
-	return downloadResult.Checksum, av, nil
-}
-
-func (r *moduleSourceReconciler) createModuleRelease(ctx context.Context, ms *v1alpha1.ModuleSource, moduleName, policyName string, result downloader.ModuleDownloadResult) error {
-	// image digest has 64 symbols, while label can have maximum 63 symbols
-	// so make md5 sum here
-	checksum := fmt.Sprintf("%x", md5.Sum([]byte(result.Checksum)))
-
-	rl := &v1alpha1.ModuleRelease{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "ModuleRelease",
-			APIVersion: "deckhouse.io/v1alpha1",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name: fmt.Sprintf("%s-%s", moduleName, result.ModuleVersion),
-			Labels: map[string]string{
-				"module":                  moduleName,
-				"source":                  ms.Name,
-				"release-checksum":        checksum,
-				release.UpdatePolicyLabel: policyName,
-			},
-			OwnerReferences: []metav1.OwnerReference{
-				{
-					APIVersion: v1alpha1.ModuleSourceGVK.GroupVersion().String(),
-					Kind:       v1alpha1.ModuleSourceGVK.Kind,
-					Name:       ms.Name,
-					UID:        ms.GetUID(),
-					Controller: ptr.To(true),
-				},
-			},
-		},
-		Spec: v1alpha1.ModuleReleaseSpec{
-			ModuleName: moduleName,
-			Version:    semver.MustParse(result.ModuleVersion),
-			Weight:     result.ModuleWeight,
-			Changelog:  v1alpha1.Changelog(result.Changelog),
-		},
-	}
-	if result.ModuleDefinition != nil {
-		rl.Spec.Requirements = result.ModuleDefinition.Requirements
-	}
-
-	err := r.client.Create(ctx, rl)
-	if err != nil {
-		if apierrors.IsAlreadyExists(err) {
-			var prevMR v1alpha1.ModuleRelease
-
-			err = r.client.Get(ctx, client.ObjectKey{Name: rl.Name}, &prevMR)
-			if err != nil {
-				return err
-			}
-
-			// seems weird to update already deployed/suspended release
-			if prevMR.Status.Phase != v1alpha1.PhasePending {
-				return nil
-			}
-
-			prevMR.Spec = rl.Spec
-			return r.client.Update(ctx, &prevMR)
+	for idx, source := range module.Properties.AvailableSources {
+		if source == sourceName {
+			module.Properties.AvailableSources = append(module.Properties.AvailableSources[:idx], module.Properties.AvailableSources[idx+1:]...)
 		}
-
+	}
+	if len(module.Properties.AvailableSources) == 0 {
+		if err := r.client.Delete(ctx, module); err != nil {
+			return err
+		}
+	}
+	if err := r.client.Update(ctx, module); err != nil {
 		return err
 	}
 	return nil
 }
 
-// getReleasePolicy checks if any update policy matches the module release and if it's so - returns the policy and its release channel.
-// if several policies match the module release labels, conflict=true is returned
-// if no policy matches the module release, deckhouseEmbeddedPolicy is returned
-func (r *moduleSourceReconciler) getReleasePolicy(sourceName, moduleName string, policies []v1alpha1.ModuleUpdatePolicy) (*v1alpha1.ModuleUpdatePolicy, error) {
+// releasePolicy checks if any update policy matches the module source and if it's so - returns the policy.
+// if several policies match the module source labels, return error
+// if no policy matches the module source, embeddedPolicy is returned
+func (r *reconciler) releasePolicy(sourceName, moduleName string, policies []v1alpha1.ModuleUpdatePolicy) (*v1alpha1.ModuleUpdatePolicy, error) {
 	var releaseLabelsSet labels.Set = map[string]string{"module": moduleName, "source": sourceName}
 	var matchedPolicy *v1alpha1.ModuleUpdatePolicy
-	var found bool
-
 	for _, policy := range policies {
-		if policy.Spec.ModuleReleaseSelector.LabelSelector != nil {
-			selector, err := metav1.LabelSelectorAsSelector(policy.Spec.ModuleReleaseSelector.LabelSelector)
-			if err != nil {
-				return nil, err
-			}
-			selectorSourceName, sourceLabelExists := selector.RequiresExactMatch("source")
-			if sourceLabelExists && selectorSourceName != sourceName {
-				// 'source' label is set, but does not match the given ModuleSource
-				continue
-			}
+		if policy.Spec.ModuleReleaseSelector.LabelSelector == nil {
+			continue
+		}
 
-			if selector.Matches(releaseLabelsSet) {
-				// ModuleUpdatePolicy matches ModuleSource and specified Module
-				if found {
-					return nil, fmt.Errorf("more than one update policy matches the module: %s and %s", matchedPolicy.Name, policy.Name)
-				}
-				found = true
-				matchedPolicy = &policy
+		selector, err := metav1.LabelSelectorAsSelector(policy.Spec.ModuleReleaseSelector.LabelSelector)
+		if err != nil {
+			return nil, err
+		}
+
+		if selectorSourceName, exist := selector.RequiresExactMatch("source"); exist && selectorSourceName != sourceName {
+			// the 'source' label is set, but does not match the given ModuleSource
+			continue
+		}
+
+		if selector.Matches(releaseLabelsSet) {
+			// ModuleUpdatePolicy matches ModuleSource and specified Module
+			if matchedPolicy != nil {
+				return nil, fmt.Errorf("more than one update policy matches the module: %s and %s", matchedPolicy.Name, policy.Name)
 			}
+			matchedPolicy = &policy
 		}
 	}
 
-	if !found {
-		r.logger.Infof("ModuleUpdatePolicy for ModuleSource: %q, Module: %q not found, using Embedded policy: %+v", sourceName, moduleName, *r.deckhouseEmbeddedPolicy.Get())
+	if matchedPolicy == nil {
+		r.log.Infof("no module update policy for the '%q' module source, and the '%q' module, deckhouse policy will be used: %+v", sourceName, moduleName, *r.embeddedPolicy.Get())
 		return &v1alpha1.ModuleUpdatePolicy{
 			TypeMeta: metav1.TypeMeta{
 				Kind:       v1alpha1.ModuleUpdatePolicyGVK.Kind,
@@ -447,140 +395,183 @@ func (r *moduleSourceReconciler) getReleasePolicy(sourceName, moduleName string,
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "", // special empty default policy, inherits Deckhouse settings for update mode
 			},
-			Spec: *r.deckhouseEmbeddedPolicy.Get(),
+			Spec: *r.embeddedPolicy.Get(),
 		}, nil
 	}
 
 	return matchedPolicy, nil
 }
 
-func (r *moduleSourceReconciler) updateModuleSourceStatus(ctx context.Context, msCopy *v1alpha1.ModuleSource) error {
-	msCopy.Status.SyncTime = metav1.NewTime(r.dc.GetClock().Now().UTC())
-
-	return r.client.Status().Update(ctx, msCopy)
-}
-
-// checkAndPropagateRegistrySettings checks if modules source registry settings were updated (comparing registryChecksumAnnotation annotation and current registry spec)
-// and update relevant module releases' openapi values files if it the case
-func (r *moduleSourceReconciler) checkAndPropagateRegistrySettings(ctx context.Context, ms *v1alpha1.ModuleSource) ( /* update required */ bool, error) {
-	// get registry settings checksum
-	marshaledSpec, err := json.Marshal(ms.Spec.Registry)
+// syncRegistrySettings checks if modules source registry settings were updated (comparing moduleSourceAnnotationRegistryChecksum annotation and the current registry spec)
+// and update relevant module releases' openapi values files if it is the case
+func (r *reconciler) syncRegistrySettings(ctx context.Context, source *v1alpha1.ModuleSource) (bool, error) {
+	marshaled, err := json.Marshal(source.Spec.Registry)
 	if err != nil {
-		return false, fmt.Errorf("couldn't marshal %s module source registry spec: %w", ms.Name, err)
+		return false, fmt.Errorf("failed to marshal the '%s' module source registry spec: %w", source.Name, err)
 	}
 
-	currentChecksum := fmt.Sprintf("%x", md5.Sum(marshaledSpec))
+	currentChecksum := fmt.Sprintf("%x", md5.Sum(marshaled))
+
 	// if there is no annotations - only set the current checksum value
-	if ms.ObjectMeta.Annotations == nil {
-		ms.ObjectMeta.Annotations = make(map[string]string)
-		ms.ObjectMeta.Annotations[registryChecksumAnnotation] = currentChecksum
+	if source.ObjectMeta.Annotations == nil {
+		source.ObjectMeta.Annotations = make(map[string]string)
+		source.ObjectMeta.Annotations[moduleSourceAnnotationRegistryChecksum] = currentChecksum
 		return true, nil
 	}
 
 	// if the annotation matches current checksum - there is nothing to do here
-	if ms.ObjectMeta.Annotations[registryChecksumAnnotation] == currentChecksum {
+	if source.ObjectMeta.Annotations[moduleSourceAnnotationRegistryChecksum] == currentChecksum {
 		return false, nil
 	}
 
 	// get related releases
-	var moduleReleasesFromSource v1alpha1.ModuleReleaseList
-	err = r.client.List(ctx, &moduleReleasesFromSource, client.MatchingLabels{"source": ms.Name})
-	if err != nil {
-		return false, fmt.Errorf("couldn't list module releases to update registry settings: %w", err)
+	moduleReleases := new(v1alpha1.ModuleReleaseList)
+	if err = r.client.List(ctx, moduleReleases, client.MatchingLabels{"source": source.Name}); err != nil {
+		return false, fmt.Errorf("failed to list module releases to update registry settings: %w", err)
 	}
 
-	for _, rl := range moduleReleasesFromSource.Items {
-		if rl.Status.Phase == v1alpha1.PhaseDeployed {
-			ownerReferences := rl.GetOwnerReferences()
-			for _, ref := range ownerReferences {
-				if ref.UID == ms.UID && ref.Name == ms.Name && ref.Kind == "ModuleSource" {
-					// update the values.yaml file in externam-modules/<module_name>/v<module_version/openapi path
-					err = downloader.InjectRegistryToModuleValues(filepath.Join(r.downloadedModulesDir, rl.Spec.ModuleName, fmt.Sprintf("v%s", rl.Spec.Version)), ms)
-					if err != nil {
-						return false, fmt.Errorf("couldn't update module release %s registry settings: %w", rl.Name, err)
-					}
-					// annotate module release with the release.RegistrySpecChangedAnnotation annotation to notify module release controller about registry spec
-					// change, if the module release isn't overridden by a module pull override
-					mpoExists, err := r.isModulePullOverrideExists(ctx, ms.Name, rl.Spec.ModuleName)
-					if err != nil {
-						return false, fmt.Errorf("unexpected error on getting ModulePullOverride for %s/%s: %w", ms.Name, rl.Spec.ModuleName, err)
-					}
-					if mpoExists {
-						break
+	for _, moduleRelease := range moduleReleases.Items {
+		if moduleRelease.Status.Phase == v1alpha1.PhaseDeployed {
+			for _, ref := range moduleRelease.GetOwnerReferences() {
+				if ref.UID == source.UID && ref.Name == source.Name && ref.Kind == v1alpha1.ModuleSourceGVK.Kind {
+					// update the values.yaml file in external-modules/<module_name>/v<module_version/openapi path
+					modulePath := filepath.Join(r.downloadedModulesDir, moduleRelease.Spec.ModuleName, fmt.Sprintf("v%s", moduleRelease.Spec.Version))
+					if err = downloader.InjectRegistryToModuleValues(modulePath, source); err != nil {
+						return false, fmt.Errorf("failed to update the '%s' module release registry settings: %w", moduleRelease.Name, err)
 					}
 
-					if rl.ObjectMeta.Annotations == nil {
-						rl.ObjectMeta.Annotations = make(map[string]string)
+					if moduleRelease.ObjectMeta.Annotations == nil {
+						moduleRelease.ObjectMeta.Annotations = make(map[string]string)
 					}
 
-					rl.ObjectMeta.Annotations[release.RegistrySpecChangedAnnotation] = r.dc.GetClock().Now().UTC().Format(time.RFC3339)
-					if err := r.client.Update(ctx, &rl); err != nil {
-						return false, fmt.Errorf("couldn't set RegistrySpecChangedAnnotation to %s the module release: %w", rl.Name, err)
+					moduleRelease.ObjectMeta.Annotations[release.RegistrySpecChangedAnnotation] = r.dependencyContainer.GetClock().Now().UTC().Format(time.RFC3339)
+					if err = r.client.Update(ctx, &moduleRelease); err != nil {
+						return false, fmt.Errorf("failed to set RegistrySpecChangedAnnotation to the '%s' module release: %w", moduleRelease.Name, err)
 					}
-
 					break
 				}
 			}
 		}
 	}
 
-	// get related module pull overrides
-	var mposFromSource v1alpha1.ModulePullOverrideList
-	err = r.client.List(ctx, &mposFromSource, client.MatchingLabels{"source": ms.Name})
-	if err != nil {
-		return false, fmt.Errorf("could list module pull overrides to update registry settings: %w", err)
-	}
-
-	for _, mpo := range mposFromSource.Items {
-		// update the values.yaml file in externam-modules/<module_name>/dev/openapi path
-		err = downloader.InjectRegistryToModuleValues(filepath.Join(r.downloadedModulesDir, mpo.Name, "dev"), ms)
-		if err != nil {
-			return false, fmt.Errorf("couldn't update module pull override %s registry settings: %w", mpo.Name, err)
-		}
-		// annotate module pull override with the release.RegistrySpecChangedAnnotation annotation to notify module pull override controller about registry spec change
-		if mpo.ObjectMeta.Annotations == nil {
-			mpo.ObjectMeta.Annotations = make(map[string]string)
-		}
-
-		mpo.ObjectMeta.Annotations[release.RegistrySpecChangedAnnotation] = r.dc.GetClock().Now().UTC().Format(time.RFC3339)
-		if err := r.client.Update(ctx, &mpo); err != nil {
-			return false, fmt.Errorf("couldn't set RegistrySpecChangedAnnotation to the %s module pull override: %w", mpo.Name, err)
-		}
-	}
-
-	ms.ObjectMeta.Annotations[registryChecksumAnnotation] = currentChecksum
+	source.ObjectMeta.Annotations[moduleSourceAnnotationRegistryChecksum] = currentChecksum
 
 	return true, nil
 }
 
-func (r *moduleSourceReconciler) isModulePullOverrideExists(ctx context.Context, sourceName, moduleName string) (bool, error) {
-	var mpo v1alpha1.ModulePullOverrideList
-	err := r.client.List(ctx, &mpo, client.MatchingLabels{"source": sourceName, "module": moduleName}, client.Limit(1))
-	if err != nil {
-		return false, err
+func (r *reconciler) updateModuleSourceStatus(ctx context.Context, sourceCopy *v1alpha1.ModuleSource) error {
+	sourceCopy.Status.SyncTime = metav1.NewTime(r.dependencyContainer.GetClock().Now().UTC())
+	return r.client.Status().Update(ctx, sourceCopy)
+}
+
+func (r *reconciler) ensureModule(ctx context.Context, sourceName, releaseChannel string, moduleName string) (bool, error) {
+	module := new(v1alpha1.Module)
+	err := r.client.Get(ctx, client.ObjectKey{Name: moduleName}, module)
+	if err == nil {
+		if !slices.Contains(module.Properties.AvailableSources, sourceName) {
+			module.Properties.AvailableSources = append(module.Properties.AvailableSources, moduleName)
+			// TODO(ipaqsa): add retry on conflict
+			if err = r.client.Update(ctx, module); err != nil {
+				return false, err
+			}
+		}
+		if module.Properties.Source == sourceName {
+			module.Properties.ReleaseChannel = releaseChannel
+			if err = r.client.Update(ctx, module); err != nil {
+				return false, err
+			}
+		}
+		return module.IsEnabled() && module.Properties.Source == sourceName, nil
 	}
 
-	return len(mpo.Items) > 0, nil
-}
-
-func (r *moduleSourceReconciler) saveSourceChecksums(msName string, checksums moduleChecksum) {
-	r.rwlock.Lock()
-	r.moduleSourcesChecksum[msName] = checksums
-	r.rwlock.Unlock()
-}
-
-func (r *moduleSourceReconciler) getModuleSourceChecksum(msName string) moduleChecksum {
-	r.rwlock.RLock()
-	defer r.rwlock.RUnlock()
-
-	res, ok := r.moduleSourcesChecksum[msName]
-	if ok {
-		return res
+	if apierrors.IsNotFound(err) {
+		module = &v1alpha1.Module{
+			TypeMeta: metav1.TypeMeta{
+				Kind:       v1alpha1.ModuleGVK.Kind,
+				APIVersion: v1alpha1.ModuleGVK.GroupVersion().String(),
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Name: moduleName,
+			},
+			Properties: v1alpha1.ModuleProperties{
+				AvailableSources: []string{sourceName},
+			},
+			Status: v1alpha1.ModuleStatus{
+				Phase: v1alpha1.ModulePhaseNotInstalled,
+				Conditions: []v1alpha1.ModuleCondition{
+					{
+						Type:               v1alpha1.ModuleConditionEnabled,
+						Status:             corev1.ConditionFalse,
+						LastTransitionTime: metav1.Now(),
+						LastProbeTime:      metav1.Now(),
+					},
+				},
+			},
+		}
+		if err = r.client.Create(ctx, module); err != nil {
+			return false, err
+		}
+		return false, nil
 	}
 
-	return make(moduleChecksum)
+	return false, err
 }
 
-type moduleChecksum map[string]string
+func (r *reconciler) ensureModuleRelease(ctx context.Context, sourceName string, sourceUID types.UID, moduleName, policy string, meta downloader.ModuleDownloadResult) error {
+	// image digest has 64 symbols, while label can have maximum 63 symbols, so make md5 sum here
+	checksum := fmt.Sprintf("%x", md5.Sum([]byte(meta.Checksum)))
 
-type sourceChecksum map[string]moduleChecksum
+	moduleRelease := &v1alpha1.ModuleRelease{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "ModuleRelease",
+			APIVersion: "deckhouse.io/v1alpha1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name: fmt.Sprintf("%s-%s", moduleName, meta.ModuleVersion),
+			Labels: map[string]string{
+				"module":                  moduleName,
+				"source":                  sourceName,
+				"release-checksum":        checksum,
+				release.UpdatePolicyLabel: policy,
+			},
+			OwnerReferences: []metav1.OwnerReference{
+				{
+					APIVersion: v1alpha1.ModuleSourceGVK.GroupVersion().String(),
+					Kind:       v1alpha1.ModuleSourceGVK.Kind,
+					Name:       sourceName,
+					UID:        sourceUID,
+					Controller: ptr.To(true),
+				},
+			},
+		},
+		Spec: v1alpha1.ModuleReleaseSpec{
+			ModuleName: moduleName,
+			Version:    semver.MustParse(meta.ModuleVersion),
+			Weight:     meta.ModuleWeight,
+			Changelog:  v1alpha1.Changelog(meta.Changelog),
+		},
+	}
+	if meta.ModuleDefinition != nil {
+		moduleRelease.Spec.Requirements = meta.ModuleDefinition.Requirements
+	}
+
+	if err := r.client.Create(ctx, moduleRelease); err != nil {
+		if apierrors.IsAlreadyExists(err) {
+			prevModuleRelease := new(v1alpha1.ModuleRelease)
+			if err = r.client.Get(ctx, client.ObjectKey{Name: moduleRelease.Name}, prevModuleRelease); err != nil {
+				return err
+			}
+
+			// seems weird to update already deployed/suspended release
+			if prevModuleRelease.Status.Phase != v1alpha1.PhasePending {
+				return nil
+			}
+
+			prevModuleRelease.Spec = moduleRelease.Spec
+			return r.client.Update(ctx, prevModuleRelease)
+		}
+
+		return err
+	}
+	return nil
+}

@@ -65,7 +65,7 @@ type ControllerTestSuite struct {
 	suite.Suite
 
 	kubeClient client.Client
-	ctr        *moduleSourceReconciler
+	ctr        *reconciler
 
 	testDataFileName string
 	testMSName       string
@@ -119,7 +119,7 @@ func (suite *ControllerTestSuite) TestCreateReconcile() {
 		dependency.TestDC.CRClient.ListTagsMock.Return([]string{"foo", "bar"}, nil)
 		suite.setupController(string(suite.fetchTestFileData("init.yaml")))
 		ms := suite.getModuleSource(suite.testMSName)
-		_, err := suite.ctr.createOrUpdateReconcile(context.TODO(), ms)
+		_, err := suite.ctr.handleModuleSource(context.TODO(), ms)
 		require.NoError(suite.T(), err)
 	})
 
@@ -131,7 +131,7 @@ func (suite *ControllerTestSuite) TestCreateReconcile() {
 
 		suite.setupController(string(suite.fetchTestFileData("ms-with-registry.yaml")))
 		ms := suite.getModuleSource(suite.testMSName)
-		_, err := suite.ctr.createOrUpdateReconcile(context.TODO(), ms)
+		_, err := suite.ctr.handleModuleSource(context.TODO(), ms)
 		require.NoError(suite.T(), err)
 	})
 
@@ -143,7 +143,7 @@ func (suite *ControllerTestSuite) TestCreateReconcile() {
 
 		suite.setupController(string(suite.fetchTestFileData("with-policy.yaml")))
 		ms := suite.getModuleSource(suite.testMSName)
-		_, err := suite.ctr.createOrUpdateReconcile(context.TODO(), ms)
+		_, err := suite.ctr.handleModuleSource(context.TODO(), ms)
 		require.NoError(suite.T(), err)
 	})
 
@@ -161,7 +161,7 @@ func (suite *ControllerTestSuite) TestCreateReconcile() {
 
 		suite.setupController(string(suite.fetchTestFileData("with-error.yaml")))
 		ms := suite.getModuleSource(suite.testMSName)
-		_, err := suite.ctr.createOrUpdateReconcile(context.TODO(), ms)
+		_, err := suite.ctr.handleModuleSource(context.TODO(), ms)
 		require.NoError(suite.T(), err)
 	})
 
@@ -175,7 +175,7 @@ func (suite *ControllerTestSuite) TestCreateReconcile() {
 
 		suite.setupController(string(suite.fetchTestFileData("with-stale-error.yaml")))
 		ms := suite.getModuleSource(suite.testMSName)
-		_, err := suite.ctr.createOrUpdateReconcile(context.TODO(), ms)
+		_, err := suite.ctr.handleModuleSource(context.TODO(), ms)
 		require.NoError(suite.T(), err)
 	})
 }
@@ -191,15 +191,6 @@ func (suite *ControllerTestSuite) fetchTestFileData(filename string) []byte {
 }
 
 func (suite *ControllerTestSuite) TestDeleteReconcile() {
-	suite.Run("not found ModuleSource, must truncate the checksum map", func() {
-		suite.setupController("")
-		suite.ctr.moduleSourcesChecksum["not-found"] = map[string]string{"foo": "bar"}
-		_, err := suite.ctr.Reconcile(context.TODO(), controllerruntime.Request{NamespacedName: types.NamespacedName{Name: "not-found"}})
-		require.NoError(suite.T(), err)
-
-		assert.Len(suite.T(), suite.ctr.moduleSourcesChecksum["not-found"], 0)
-	})
-
 	suite.Run("ModuleSource with finalizer and empty releases", func() {
 		m := `
 apiVersion: deckhouse.io/v1alpha1
@@ -218,7 +209,7 @@ spec:
 
 		ms := suite.getModuleSource("test-source")
 
-		result, err := suite.ctr.deleteReconcile(context.TODO(), ms)
+		result, err := suite.ctr.deleteModuleSource(context.TODO(), ms)
 		require.NoError(suite.T(), err)
 		assert.False(suite.T(), result.Requeue)
 		assert.Empty(suite.T(), result.RequeueAfter)
@@ -269,7 +260,7 @@ status:
 		suite.setupController(m)
 
 		ms := suite.getModuleSource("test-source-2")
-		result, err := suite.ctr.deleteReconcile(context.TODO(), ms)
+		result, err := suite.ctr.deleteModuleSource(context.TODO(), ms)
 		require.NoError(suite.T(), err)
 		assert.False(suite.T(), result.Requeue)
 		assert.Equal(suite.T(), 5*time.Second, result.RequeueAfter)
@@ -326,7 +317,7 @@ status:
 
 		ms := suite.getModuleSource("test-source-3")
 
-		result, err := suite.ctr.deleteReconcile(context.TODO(), ms)
+		result, err := suite.ctr.deleteModuleSource(context.TODO(), ms)
 		require.NoError(suite.T(), err)
 		assert.False(suite.T(), result.Requeue)
 		assert.Empty(suite.T(), result.RequeueAfter)
@@ -449,19 +440,18 @@ func (suite *ControllerTestSuite) setupController(yamlDoc string) {
 	_ = v1alpha1.SchemeBuilder.AddToScheme(sc)
 	cl := fake.NewClientBuilder().WithScheme(sc).WithObjects(initObjects...).WithStatusSubresource(&v1alpha1.ModuleSource{}, &v1alpha1.ModuleRelease{}).Build()
 
-	rec := &moduleSourceReconciler{
+	rec := &reconciler{
 		client:               cl,
 		downloadedModulesDir: d8env.GetDownloadedModulesDir(),
-		dc:                   dependency.NewDependencyContainer(),
-		logger:               log.New(),
+		dependencyContainer:  dependency.NewDependencyContainer(),
+		log:                  log.New(),
 
-		deckhouseEmbeddedPolicy: helpers.NewModuleUpdatePolicySpecContainer(&v1alpha1.ModuleUpdatePolicySpec{
+		embeddedPolicy: helpers.NewModuleUpdatePolicySpecContainer(&v1alpha1.ModuleUpdatePolicySpec{
 			Update: v1alpha1.ModuleUpdatePolicySpecUpdate{
 				Mode: "Auto",
 			},
 			ReleaseChannel: "Stable",
 		}),
-		moduleSourcesChecksum: make(sourceChecksum),
 	}
 
 	suite.ctr = rec

@@ -42,7 +42,7 @@ type ModuleConfigStatus struct {
 }
 
 type ModuleStatus struct {
-	Status     string
+	Phase      string
 	Message    string
 	HooksState string
 }
@@ -61,6 +61,7 @@ func NewModuleInfo(mm ModuleManager, possibleNames set.Set) *StatusReporter {
 
 func (s *StatusReporter) ForModule(module *v1alpha1.Module, cfg *v1alpha1.ModuleConfig, bundleName string) ModuleStatus {
 	// Figure out additional statuses for known modules.
+	var phase string
 	statusMsgs := make([]string, 0)
 	msgs := make([]string, 0)
 	moduleName := module.GetName()
@@ -69,7 +70,7 @@ func (s *StatusReporter) ForModule(module *v1alpha1.Module, cfg *v1alpha1.Module
 	// return error if module manager doesn't have such a module
 	if mod == nil {
 		return ModuleStatus{
-			Status: "Error: failed to fetch module metadata",
+			//Status: "Error: failed to fetch module metadata",
 		}
 	}
 
@@ -96,7 +97,8 @@ func (s *StatusReporter) ForModule(module *v1alpha1.Module, cfg *v1alpha1.Module
 			// which is directly controlled by addon-operator.
 			switch mod.GetPhase() {
 			case modules.CanRunHelm:
-				statusMsgs = append(statusMsgs, "Ready")
+				phase = v1alpha1.ModulePhaseReady
+				statusMsgs = append(statusMsgs, v1alpha1.ModulePhaseReady)
 				// enrich the status message with a notification from the related module config
 				if cfg != nil {
 					cfgStatus := s.ForConfig(cfg)
@@ -106,7 +108,8 @@ func (s *StatusReporter) ForModule(module *v1alpha1.Module, cfg *v1alpha1.Module
 				}
 
 			case modules.Startup:
-				statusMsgs = append(statusMsgs, "Enqueued")
+				phase = v1alpha1.ModulePhaseEnqueued
+				statusMsgs = append(statusMsgs, v1alpha1.ModulePhaseEnqueued)
 
 			case modules.OnStartupDone:
 				statusMsgs = append(statusMsgs, "OnStartUp hooks are completed")
@@ -164,7 +167,8 @@ func (s *StatusReporter) ForModule(module *v1alpha1.Module, cfg *v1alpha1.Module
 	}
 
 	return ModuleStatus{
-		Status:     strings.Join(statusMsgs, ", "),
+		Phase: phase,
+		//Status:     strings.Join(statusMsgs, ", "),
 		Message:    fmt.Sprintf("Info: %s", strings.Join(msgs, ", ")),
 		HooksState: mod.GetHookErrorsSummary(),
 	}
