@@ -1,0 +1,60 @@
+{{- $version := "6.11" }}
+{{- $image_version := $version | replace "." "-" }}
+---
+image: {{ $.ModuleName }}/{{ $.ImageName }}-{{ $image_version }}
+from: {{ $.Images.BASE_SCRATCH }}
+import:
+- artifact: {{ $.ModuleName }}/{{ $.ImageName }}-artifact-{{ $image_version }}
+  add: /
+  to: /
+  includePaths:
+  - ethtool
+  - install
+  - uninstall
+  before: setup
+docker:
+  LABEL:
+    distro: all
+    version: all
+    ethtool: {{ $version }}
+---
+artifact: {{ .ModuleName }}/{{ .ImageName }}-src-artifact
+fromArtifact: common/src-artifact
+git:
+  - add: /{{ $.ModulePath }}modules/007-{{ $.ModuleName }}/images/{{ $.ImageName }}/scripts
+    to: /src/scripts
+    stageDependencies:
+      setup:
+      - '**/*'
+shell:
+  install:
+  - cd /src
+  - git clone -b libmnl-1.0.5 --depth 1 {{ $.SOURCE_REPO }}/netfilter/libmnl ./src-libmnl
+  - git clone -b v{{ $version }} --depth 1  {{ $.SOURCE_REPO }}/ethtool/ethtool.git ./src-ethtool
+---
+artifact: {{ $.ModuleName }}/{{ $.ImageName }}-artifact-{{ $image_version }}
+from: {{ $.Images.BASE_ALPINE }}
+import:
+  - artifact: {{ .ModuleName }}/{{ .ImageName }}-src-artifact
+    add: /src
+    to: /src
+    before: install
+shell:
+  beforeInstall:
+  {{- include "alpine packages proxy" . | nindent 2 }}
+  - apk add --no-cache autoconf automake make libtool g++ linux-headers pkgconfig
+  setup:
+    - export PKG_CONFIG_PATH=/opt/deckhouse/bin/.libs/pkgconfig
+    - cd /src/src-libmnl
+    - ./autogen.sh
+    - ./configure --enable-static --libdir=/opt/deckhouse/bin/.libs
+    - make && make install
+    - cd /src/src-ethtool
+    - ./autogen.sh
+    - ./configure LDFLAGS=-static --libdir=/opt/deckhouse/bin/.libs
+    - make
+    - ls -la
+    - strip ./ethtool
+    - mv ./ethtool /ethtool
+    - mv /src/scripts/* /
+    - chmod +x /ethtool /install /uninstall
