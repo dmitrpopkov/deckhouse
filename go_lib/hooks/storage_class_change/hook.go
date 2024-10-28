@@ -24,6 +24,7 @@ import (
 	"github.com/flant/addon-operator/pkg/module_manager/go_hook/metrics"
 	"github.com/flant/addon-operator/sdk"
 	"github.com/flant/shell-operator/pkg/kube_events_manager/types"
+	"github.com/flant/shell-operator/pkg/unilogger"
 	"github.com/iancoleman/strcase"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/api/policy/v1beta1"
@@ -268,9 +269,9 @@ func storageClassChangeWithArgs(input *go_hook.HookInput, dc dependency.Containe
 		if err == nil {
 			// if someone deleted pvc then evict the pod.
 			err = kubeClient.CoreV1().Pods(pod.Namespace).Evict(context.TODO(), &v1beta1.Eviction{ObjectMeta: metav1.ObjectMeta{Name: pod.Name}})
-			input.LogEntry.Infof("evicting Pod %s/%s due to PVC %s stuck in Terminating state", pod.Namespace, pod.Name, pvc.Name)
+			input.Logger.Infof("evicting Pod %s/%s due to PVC %s stuck in Terminating state", pod.Namespace, pod.Name, pvc.Name)
 			if err != nil {
-				input.LogEntry.Infof("can't Evict Pod %s/%s: %s", pod.Namespace, pod.Name, err)
+				input.Logger.Infof("can't Evict Pod %s/%s: %s", pod.Namespace, pod.Name, err)
 			}
 		}
 	}
@@ -287,26 +288,27 @@ func storageClassChangeWithArgs(input *go_hook.HookInput, dc dependency.Containe
 		if wasPvc {
 			for _, obj := range pvcs {
 				pvc := obj.(PVC)
-				input.LogEntry.Infof("storage class changed, deleting %s/PersistentVolumeClaim/%s", pvc.Namespace, pvc.Name)
+				input.Logger.Infof("storage class changed, deleting %s/PersistentVolumeClaim/%s", pvc.Namespace, pvc.Name)
 				err = kubeClient.CoreV1().PersistentVolumeClaims(pvc.Namespace).Delete(context.TODO(), pvc.Name, metav1.DeleteOptions{})
 				if err != nil {
-					input.LogEntry.Infof("%v", err)
+					input.Logger.Infof("%v", err)
 				}
 			}
 		}
 
-		input.LogEntry.Infof("storage class changed, deleting %s/%s/%s", args.Namespace, args.ObjectKind, args.ObjectName)
+		input.Logger.Infof("storage class changed, deleting %s/%s/%s", args.Namespace, args.ObjectKind, args.ObjectName)
 		switch args.ObjectKind {
 		case "Prometheus":
 			err = kubeClient.Dynamic().Resource(schema.GroupVersionResource{Group: "monitoring.coreos.com", Version: "v1", Resource: "prometheuses.monitoring.coreos.com"}).Namespace(args.Namespace).Delete(context.TODO(), args.ObjectName, metav1.DeleteOptions{})
 		case "StatefulSet":
 			err = kubeClient.AppsV1().StatefulSets(args.Namespace).Delete(context.TODO(), args.ObjectName, metav1.DeleteOptions{})
 		default:
-			input.LogEntry.Panicln("unknown object kind")
+			input.Logger.Log(context.Background(), unilogger.LevelFatal.Level(), "unknown object kind")
+			panic("unknown object kind")
 		}
 
 		if err != nil && !errors.IsNotFound(err) {
-			input.LogEntry.Errorf("%v", err)
+			input.Logger.Errorf("%v", err)
 		}
 	}
 	return nil

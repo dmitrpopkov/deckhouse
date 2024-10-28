@@ -21,7 +21,7 @@ import (
 	"strings"
 
 	"github.com/Masterminds/semver/v3"
-	"github.com/flant/addon-operator/pkg/utils/logger"
+	log "github.com/flant/shell-operator/pkg/unilogger"
 	"github.com/fsnotify/fsnotify"
 )
 
@@ -29,7 +29,7 @@ type versionWatcher struct {
 	ch          chan<- *semver.Version
 	lastVersion *semver.Version
 	watcher     *fsnotify.Watcher
-	logger      logger.Logger
+	logger      *log.Logger
 }
 
 func (w *versionWatcher) watch(path string) (err error) {

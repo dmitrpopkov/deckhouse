@@ -40,6 +40,7 @@ import (
 	. "github.com/flant/shell-operator/pkg/hook/types"
 	"github.com/flant/shell-operator/pkg/kube/object_patch"
 	"github.com/flant/shell-operator/pkg/metric_storage/operation"
+	"github.com/flant/shell-operator/pkg/unilogger"
 	utils "github.com/flant/shell-operator/pkg/utils/file"
 	hookcontext "github.com/flant/shell-operator/test/hook/context"
 	. "github.com/onsi/ginkgo"
@@ -156,11 +157,13 @@ type HookExecutionConfig struct {
 	MetricsCollector TestMetricsCollector
 	PatchCollector   *object_patch.PatchCollector
 
-	Session      *gexec.Session
-	LogrusOutput *gbytes.Buffer
+	Session *gexec.Session
+	Logger  *gbytes.Buffer
 
 	fakeClusterVersion k8s.FakeClusterVersion
 	fakeCluster        *fake.Cluster
+
+	logger *unilogger.Logger
 }
 
 func (hec *HookExecutionConfig) KubeClient() *klient.Client {
@@ -213,6 +216,8 @@ func HookExecutionConfigInit(initValues, initConfigValues string, k8sVersion ...
 	hookEnvs := []string{"ADDON_OPERATOR_NAMESPACE=tests", "DECKHOUSE_POD=tests"}
 
 	hec := new(HookExecutionConfig)
+	hec.logger = unilogger.NewLogger(unilogger.Options{})
+
 	fakeClusterVersion := k8s.DefaultFakeClusterVersion
 	if len(k8sVersion) > 0 {
 		fakeClusterVersion = k8sVersion[0]
@@ -257,7 +262,8 @@ func HookExecutionConfigInit(initValues, initConfigValues string, k8sVersion ...
 
 	// Catch logrus messages for LoadOpenAPISchemas.
 	buf := &bytes.Buffer{}
-	logrus.SetOutput(buf)
+
+	hec.logger.SetOutput(buf)
 	// TODO Is there a solution for ginkgo to have a shared validator for all tests in module?
 	hec.ValuesValidator, err = values_validation.NewValuesValidator(moduleName, modulePath)
 	if err != nil {
@@ -367,7 +373,7 @@ func (hec *HookExecutionConfig) KubeStateSet(newKubeState string) hookcontext.Ge
 	var contexts hookcontext.GeneratedBindingContexts
 	var err error
 	if !hec.IsKubeStateInited {
-		hec.BindingContextController = hookcontext.NewBindingContextController(hec.hookConfig, hec.fakeClusterVersion)
+		hec.BindingContextController = hookcontext.NewBindingContextController(hec.hookConfig, hec.logger, hec.fakeClusterVersion)
 		if err != nil {
 			panic(err)
 		}
@@ -599,7 +605,7 @@ func (hec *HookExecutionConfig) RunHook() {
 		operations, err := object_patch.ParseOperations(kubernetesPatchBytes)
 		Expect(err).ShouldNot(HaveOccurred())
 
-		patcher := object_patch.NewObjectPatcher(hec.getFakeClient())
+		patcher := object_patch.NewObjectPatcher(hec.getFakeClient(), hec.logger)
 		err = patcher.ExecuteOperations(operations)
 		Expect(err).ToNot(HaveOccurred())
 	}
@@ -679,9 +685,8 @@ func (hec *HookExecutionConfig) RunGoHook() {
 	hec.MetricsCollector = metricsCollector
 
 	// Catch all log messages into assertable buffer.
-	hec.LogrusOutput = gbytes.NewBuffer()
-	logger := logrus.New()
-	logger.SetOutput(hec.LogrusOutput)
+	hec.Logger = gbytes.NewBuffer()
+	hec.logger.SetOutput(hec.Logger)
 
 	// TODO: assert on binding actions
 	var bindingActions []go_hook.BindingAction
@@ -695,7 +700,7 @@ func (hec *HookExecutionConfig) RunGoHook() {
 		Values:           patchableValues,
 		ConfigValues:     patchableConfigValues,
 		MetricsCollector: metricsCollector,
-		LogEntry:         logger.WithField("output", "gohook"),
+		Logger:           hec.logger.With("output", "gohook"),
 		PatchCollector:   patchCollector,
 		BindingActions:   &bindingActions,
 	}
@@ -729,7 +734,7 @@ func (hec *HookExecutionConfig) RunGoHook() {
 	}
 
 	if operations := patchCollector.Operations(); len(operations) > 0 {
-		patcher := object_patch.NewObjectPatcher(hec.getFakeClient())
+		patcher := object_patch.NewObjectPatcher(hec.getFakeClient(), hec.logger)
 		err := patcher.ExecuteOperations(operations)
 		Expect(err).ShouldNot(HaveOccurred())
 	}

@@ -26,7 +26,7 @@ import (
 	"sync"
 	"time"
 
-	log "github.com/sirupsen/logrus"
+	log "github.com/flant/shell-operator/pkg/unilogger"
 	"github.com/yandex-cloud/go-sdk/iamkey"
 )
 
@@ -79,7 +79,7 @@ var services = map[string]struct{}{
 type CloudApi struct {
 	folderId        string
 	stopCh          chan struct{}
-	logger          *log.Entry
+	logger          *log.Logger
 	autoRenewPeriod time.Duration
 	onRenewError    func()
 	client          *http.Client
@@ -91,7 +91,7 @@ type CloudApi struct {
 	iamKey *iamkey.Key
 }
 
-func NewCloudAPI(logger *log.Entry, folderId string, stopCh chan struct{}) *CloudApi {
+func NewCloudAPI(logger *log.Logger, folderId string, stopCh chan struct{}) *CloudApi {
 	client := &http.Client{
 		Transport: &http.Transport{
 			DialContext: (&net.Dialer{
@@ -130,7 +130,7 @@ func (a *CloudApi) HasService(key string) bool {
 
 func (a *CloudApi) InitWithAPIKey(key string) {
 	if a.isInit {
-		a.logger.Warningln("Yandex cloud api already init")
+		a.logger.Warn("Yandex cloud api already init")
 		return
 	}
 

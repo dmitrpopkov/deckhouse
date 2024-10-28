@@ -48,7 +48,7 @@ type StatusRangeHandler struct {
 }
 
 func (h *StatusRangeHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	log.Infoln("StatusRange", r.RemoteAddr, r.RequestURI)
+	log.Info("StatusRange", r.RemoteAddr, r.RequestURI)
 
 	if r.Method != http.MethodGet {
 		w.WriteHeader(http.StatusMethodNotAllowed)

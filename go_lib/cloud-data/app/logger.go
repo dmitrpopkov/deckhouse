@@ -15,7 +15,7 @@
 package app
 
 import (
-	log "github.com/sirupsen/logrus"
+	log "github.com/flant/shell-operator/pkg/unilogger"
 )
 
 const (
@@ -23,19 +23,9 @@ const (
 	loggerJSON   = "json"
 )
 
-func InitLogger() *log.Entry {
-	var formatter log.Formatter = &log.TextFormatter{
-		DisableColors:   true,
-		TimestampFormat: "2006-01-02 15:04:05",
-		FullTimestamp:   true,
-	}
-	if LoggerType == loggerJSON {
-		formatter = &log.JSONFormatter{}
-	}
-
-	l := log.New()
+func InitLogger() *log.Logger {
+	l := log.NewLogger(log.Options{})
 	l.SetLevel(log.Level(LoggerLevel))
-	l.SetFormatter(formatter)
 
-	return log.NewEntry(l)
+	return l
 }

@@ -21,27 +21,30 @@ import (
 	"github.com/deckhouse/deckhouse/dhctl/pkg/config"
 	"github.com/deckhouse/deckhouse/dhctl/pkg/operations/bootstrap"
 	"github.com/deckhouse/deckhouse/dhctl/pkg/terraform"
+	"github.com/flant/shell-operator/pkg/unilogger"
 )
 
-func DefineBootstrapCommand(kpApp *kingpin.Application) *kingpin.CmdClause {
-	cmd := kpApp.Command("bootstrap", "Bootstrap cluster.")
-	app.DefineSSHFlags(cmd, config.ConnectionConfigParser{})
-	app.DefineConfigFlags(cmd)
-	app.DefineBecomeFlags(cmd)
-	app.DefineCacheFlags(cmd)
-	app.DefineDropCacheFlags(cmd)
-	app.DefineResourcesFlags(cmd, false)
-	app.DefineDeckhouseFlags(cmd)
-	app.DefineDontUsePublicImagesFlags(cmd)
-	app.DefinePostBootstrapScriptFlags(cmd)
-	app.DefinePreflight(cmd)
+func DefineBootstrapCommand(logger *unilogger.Logger) func(kpApp *kingpin.Application) *kingpin.CmdClause {
+	return func(kpApp *kingpin.Application) *kingpin.CmdClause {
+		cmd := kpApp.Command("bootstrap", "Bootstrap cluster.")
+		app.DefineSSHFlags(cmd, config.ConnectionConfigParser{})
+		app.DefineConfigFlags(cmd)
+		app.DefineBecomeFlags(cmd)
+		app.DefineCacheFlags(cmd)
+		app.DefineDropCacheFlags(cmd)
+		app.DefineResourcesFlags(cmd, false)
+		app.DefineDeckhouseFlags(cmd)
+		app.DefineDontUsePublicImagesFlags(cmd)
+		app.DefinePostBootstrapScriptFlags(cmd)
+		app.DefinePreflight(cmd)
 
-	cmd.Action(func(c *kingpin.ParseContext) error {
-		bootstraper := bootstrap.NewClusterBootstrapper(&bootstrap.Params{
-			TerraformContext: terraform.NewTerraformContext(),
+		cmd.Action(func(c *kingpin.ParseContext) error {
+			bootstraper := bootstrap.NewClusterBootstrapper(&bootstrap.Params{
+				TerraformContext: terraform.NewTerraformContext(),
+			}, logger)
+			return bootstraper.Bootstrap()
 		})
-		return bootstraper.Bootstrap()
-	})
 
-	return cmd
+		return cmd
+	}
 }

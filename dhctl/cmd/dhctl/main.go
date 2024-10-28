@@ -38,6 +38,7 @@ import (
 	"github.com/deckhouse/deckhouse/dhctl/pkg/terraform"
 	"github.com/deckhouse/deckhouse/dhctl/pkg/util/cache"
 	"github.com/deckhouse/deckhouse/dhctl/pkg/util/tomb"
+	"github.com/flant/shell-operator/pkg/unilogger"
 )
 
 func main() {
@@ -50,6 +51,9 @@ func main() {
 	tomb.RegisterOnShutdown("Stop default SSH session", process.DefaultSession.Stop)
 	tomb.RegisterOnShutdown("Clear dhctl temporary directory", cache.ClearTemporaryDirs)
 	tomb.RegisterOnShutdown("Clear terraform data temporary directory", cache.ClearTerraformDir)
+
+	logger := unilogger.NewLogger(unilogger.Options{})
+	unilogger.SetDefault(logger)
 
 	go tomb.WaitForProcessInterruption()
 
@@ -65,15 +69,15 @@ func main() {
 	commands.DefineServerCommand(kpApp)
 	commands.DefineSingleThreadedServerCommand(kpApp)
 
-	bootstrap.DefineBootstrapCommand(kpApp)
+	bootstrap.DefineBootstrapCommand(logger)(kpApp)
 	bootstrapPhaseCmd := kpApp.Command("bootstrap-phase", "Commands to run a single phase of the bootstrap process.")
 	{
-		bootstrap.DefineBootstrapExecuteBashibleCommand(bootstrapPhaseCmd)
-		bootstrap.DefineBootstrapInstallDeckhouseCommand(bootstrapPhaseCmd)
-		bootstrap.DefineCreateResourcesCommand(bootstrapPhaseCmd)
-		bootstrap.DefineBootstrapAbortCommand(bootstrapPhaseCmd)
-		bootstrap.DefineBaseInfrastructureCommand(bootstrapPhaseCmd)
-		bootstrap.DefineExecPostBootstrapScript(bootstrapPhaseCmd)
+		bootstrap.DefineBootstrapExecuteBashibleCommand(logger)(bootstrapPhaseCmd)
+		bootstrap.DefineBootstrapInstallDeckhouseCommand(logger)(bootstrapPhaseCmd)
+		bootstrap.DefineCreateResourcesCommand(logger)(bootstrapPhaseCmd)
+		bootstrap.DefineBootstrapAbortCommand(logger)(bootstrapPhaseCmd)
+		bootstrap.DefineBaseInfrastructureCommand(logger)(bootstrapPhaseCmd)
+		bootstrap.DefineExecPostBootstrapScript(logger)(bootstrapPhaseCmd)
 	}
 
 	commands.DefineConvergeCommand(kpApp)

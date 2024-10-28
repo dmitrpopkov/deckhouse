@@ -19,7 +19,7 @@ import (
 	"time"
 
 	"github.com/alecthomas/kingpin"
-	"github.com/sirupsen/logrus"
+	"github.com/flant/shell-operator/pkg/unilogger"
 )
 
 var (
@@ -27,7 +27,7 @@ var (
 	KubeConfig      = ""
 	ListenAddress   = "127.0.0.1:9000"
 	LoggerType      = loggerJSON
-	LoggerLevel     = int(logrus.InfoLevel)
+	LoggerLevel     = int(unilogger.LevelInfo)
 )
 
 func InitFlags(cmd *kingpin.Application) {

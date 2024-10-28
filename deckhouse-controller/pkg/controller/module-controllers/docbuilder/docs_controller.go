@@ -27,8 +27,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/flant/addon-operator/pkg/utils/logger"
-	log "github.com/sirupsen/logrus"
+	log "github.com/flant/shell-operator/pkg/unilogger"
 	coordv1 "k8s.io/api/coordination/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -62,18 +61,18 @@ type moduleDocumentationReconciler struct {
 	dc          dependency.Container
 	docsBuilder *docs_builder.Client
 
-	logger logger.Logger
+	logger *log.Logger
 }
 
-func NewModuleDocumentationController(mgr manager.Manager, dc dependency.Container) error {
-	lg := log.WithField("component", "ModuleDocumentation")
+func NewModuleDocumentationController(mgr manager.Manager, dc dependency.Container, logger *log.Logger) error {
+	lg := logger.With("component", "ModuleDocumentation")
 
 	c := &moduleDocumentationReconciler{
-		mgr.GetClient(),
-		d8env.GetDownloadedModulesDir(),
-		dependency.NewDependencyContainer(),
-		docs_builder.NewClient(dc.GetHTTPClient()),
-		lg,
+		client:               mgr.GetClient(),
+		downloadedModulesDir: d8env.GetDownloadedModulesDir(),
+		dc:                   dependency.NewDependencyContainer(),
+		docsBuilder:          docs_builder.NewClient(dc.GetHTTPClient()),
+		logger:               lg,
 	}
 
 	ctr, err := controller.New("module-documentation", mgr, controller.Options{

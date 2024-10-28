@@ -22,6 +22,7 @@ import (
 
 	"github.com/flant/addon-operator/pkg/module_manager/models/modules"
 	"github.com/flant/addon-operator/pkg/utils"
+	"github.com/flant/shell-operator/pkg/unilogger"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/deckhouse/deckhouse/deckhouse-controller/pkg/apis/deckhouse.io/v1alpha1"
@@ -38,8 +39,8 @@ type DeckhouseModule struct {
 	needConfirmDisableMessage string
 }
 
-func NewDeckhouseModule(def DeckhouseModuleDefinition, staticValues utils.Values, configBytes, valuesBytes []byte) (*DeckhouseModule, error) {
-	basic, err := modules.NewBasicModule(def.Name, def.Path, def.Weight, staticValues, configBytes, valuesBytes)
+func NewDeckhouseModule(def DeckhouseModuleDefinition, staticValues utils.Values, configBytes, valuesBytes []byte, logger *unilogger.Logger) (*DeckhouseModule, error) {
+	basic, err := modules.NewBasicModule(def.Name, def.Path, def.Weight, staticValues, configBytes, valuesBytes, logger.Named("basic-module"))
 	if err != nil {
 		return nil, fmt.Errorf("new basic module: %w", err)
 	}

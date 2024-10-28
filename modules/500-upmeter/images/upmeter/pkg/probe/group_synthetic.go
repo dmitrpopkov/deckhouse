@@ -19,10 +19,9 @@ package probe
 import (
 	"time"
 
-	"github.com/sirupsen/logrus"
-
 	"d8.io/upmeter/pkg/kubernetes"
 	"d8.io/upmeter/pkg/probe/checker"
+	"github.com/sirupsen/logrus"
 )
 
 func initSynthetic(access kubernetes.Access, logger *logrus.Logger) []runnerConfig {

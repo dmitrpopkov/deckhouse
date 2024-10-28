@@ -23,6 +23,7 @@ import (
 	"github.com/flant/addon-operator/pkg/module_manager"
 	"github.com/flant/addon-operator/pkg/module_manager/models/modules"
 	"github.com/flant/addon-operator/pkg/utils"
+	"github.com/flant/shell-operator/pkg/unilogger"
 	"k8s.io/utils/ptr"
 
 	"github.com/deckhouse/deckhouse/go_lib/set"
@@ -90,13 +91,13 @@ type ModuleMock struct {
 	enabled *bool
 }
 
-func NewModule(name, path string, enabledByScript *bool) (*ModuleMock, error) {
+func NewModule(name, path string, enabledByScript *bool, logger *unilogger.Logger) (*ModuleMock, error) {
 	cb, vb, err := utils.ReadOpenAPIFiles(filepath.Join(path, "openapi"))
 	if err != nil {
 		return nil, fmt.Errorf("read open API files: %w", err)
 	}
 
-	bm, err := modules.NewBasicModule(name, "mockpath", 100, nil, cb, vb)
+	bm, err := modules.NewBasicModule(name, "mockpath", 100, nil, cb, vb, logger)
 	if err != nil {
 		return nil, fmt.Errorf("new basic module: %w", err)
 	}

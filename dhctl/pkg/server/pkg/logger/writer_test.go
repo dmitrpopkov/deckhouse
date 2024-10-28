@@ -17,13 +17,14 @@ package logger_test
 import (
 	"bytes"
 	"fmt"
-	"io"
 	"log/slog"
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/deckhouse/deckhouse/dhctl/pkg/server/pkg/logger"
+	"github.com/flant/shell-operator/pkg/unilogger"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -96,14 +97,19 @@ func TestLogWriter(t *testing.T) {
 			defer close(sendCh)
 
 			var logBuff bytes.Buffer
-			log := slog.New(slog.NewTextHandler(io.Writer(&logBuff), &slog.HandlerOptions{
-				ReplaceAttr: func(_ []string, attr slog.Attr) slog.Attr {
-					if attr.Key == slog.TimeKey {
-						return slog.Attr{}
+
+			logopts := unilogger.Options{
+				Output: &logBuff,
+				TimeFunc: func(_ time.Time) time.Time {
+					parsedTime, err := time.Parse(time.DateTime, "2006-01-02 15:04:05")
+					if err != nil {
+						assert.NoError(t, err)
 					}
-					return attr
+
+					return parsedTime
 				},
-			})).With(slog.String("key", "value"))
+			}
+			log := unilogger.NewLogger(logopts).With(slog.String("key", "value"))
 
 			w := logger.NewLogWriter(log, sendCh, tt.f)
 
@@ -130,7 +136,7 @@ func TestLogWriter(t *testing.T) {
 			expectedLogLines := make([]string, 0)
 			for _, lines := range tt.lines {
 				for _, line := range lines {
-					lohLine := fmt.Sprintf("level=INFO msg=\"%s\" key=value", strings.ToLower(line))
+					lohLine := fmt.Sprintf(`{"level":"info","msg":"%s","key":"value","time":"2006-01-02T15:04:05Z"}`, strings.ToLower(line))
 					expectedLogLines = append(expectedLogLines, lohLine)
 				}
 			}

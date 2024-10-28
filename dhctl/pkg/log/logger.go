@@ -328,9 +328,9 @@ func (d *SimpleLogger) FlushAndClose() error {
 }
 
 func (d *SimpleLogger) LogProcess(p, t string, run func() error) error {
-	d.logger.WithField("action", "start").WithField("process", p).Infoln(t)
+	d.logger.WithField("action", "start").WithField("process", p).Info(t)
 	err := run()
-	d.logger.WithField("action", "end").WithField("process", p).Infoln(t)
+	d.logger.WithField("action", "end").WithField("process", p).Info(t)
 	return err
 }
 
@@ -339,7 +339,7 @@ func (d *SimpleLogger) LogInfoF(format string, a ...interface{}) {
 }
 
 func (d *SimpleLogger) LogInfoLn(a ...interface{}) {
-	d.logger.Infoln(a...)
+	d.logger.Info(a...)
 }
 
 func (d *SimpleLogger) LogErrorF(format string, a ...interface{}) {
@@ -358,12 +358,12 @@ func (d *SimpleLogger) LogDebugF(format string, a ...interface{}) {
 
 func (d *SimpleLogger) LogDebugLn(a ...interface{}) {
 	if d.isDebug {
-		d.logger.Debugln(a...)
+		d.logger.Debug(a...)
 	}
 }
 
 func (d *SimpleLogger) LogSuccess(l string) {
-	d.logger.WithField("status", "SUCCESS").Infoln(l)
+	d.logger.WithField("status", "SUCCESS").Info(l)
 }
 
 func (d *SimpleLogger) LogFail(l string) {
@@ -379,7 +379,7 @@ func (d *SimpleLogger) LogWarnLn(a ...interface{}) {
 }
 
 func (d *SimpleLogger) LogJSON(content []byte) {
-	d.logger.Infoln(string(content))
+	d.logger.Info(string(content))
 }
 
 func (d *SimpleLogger) Write(content []byte) (int, error) {

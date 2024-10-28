@@ -254,7 +254,7 @@ func (s *Service) bootstrap(
 		UseTfCache:                 ptr.To(true),
 		AutoApprove:                ptr.To(true),
 		KubernetesInitParams:       nil,
-	})
+	}, s.logger)
 
 	bootstrapErr := bootstrapper.Bootstrap()
 	state := bootstrapper.GetLastState()

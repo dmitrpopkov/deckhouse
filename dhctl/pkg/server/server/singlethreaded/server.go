@@ -23,6 +23,7 @@ import (
 	"path/filepath"
 
 	"github.com/deckhouse/deckhouse/dhctl/pkg/config"
+	"github.com/flant/shell-operator/pkg/unilogger"
 	"github.com/google/uuid"
 	"github.com/grpc-ecosystem/go-grpc-middleware/v2/interceptors/logging"
 	"github.com/grpc-ecosystem/go-grpc-middleware/v2/interceptors/recovery"
@@ -42,9 +43,9 @@ import (
 // Serve starts GRPC server
 func Serve(network, address string) error {
 	dhctllog.InitLoggerWithOptions("silent", dhctllog.LoggerOptions{})
-	lvl := &slog.LevelVar{}
-	lvl.Set(slog.LevelDebug)
-	log := logger.NewLogger(lvl).With(slog.String("component", "singlethreaded_server"))
+
+	log := unilogger.NewLogger(unilogger.Options{}).With(slog.String("component", "singlethreaded_server"))
+	log.SetLevel(unilogger.LevelDebug)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
@@ -103,7 +104,7 @@ func Serve(network, address string) error {
 	reflection.Register(s)
 
 	// init services
-	dhctlService := dhctl.New(podName, cacheDir, config.NewSchemaStore())
+	dhctlService := dhctl.New(podName, cacheDir, config.NewSchemaStore(), log)
 
 	// register services
 	pbdhctl.RegisterDHCTLServer(s, dhctlService)

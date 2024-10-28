@@ -24,135 +24,148 @@ import (
 	"github.com/deckhouse/deckhouse/dhctl/pkg/operations/bootstrap"
 	"github.com/deckhouse/deckhouse/dhctl/pkg/system/node/ssh"
 	"github.com/deckhouse/deckhouse/dhctl/pkg/terraform"
+	"github.com/flant/shell-operator/pkg/unilogger"
 )
 
-func DefineBootstrapInstallDeckhouseCommand(parent *kingpin.CmdClause) *kingpin.CmdClause {
-	cmd := parent.Command("install-deckhouse", "Install deckhouse and wait for its readiness.")
-	app.DefineSSHFlags(cmd, config.ConnectionConfigParser{})
-	app.DefineConfigFlags(cmd)
-	app.DefineBecomeFlags(cmd)
-	app.DefineKubeFlags(cmd)
-	app.DefineDeckhouseFlags(cmd)
-	app.DefineDeckhouseInstallFlags(cmd)
+func DefineBootstrapInstallDeckhouseCommand(logger *unilogger.Logger) func(parent *kingpin.CmdClause) *kingpin.CmdClause {
+	return func(parent *kingpin.CmdClause) *kingpin.CmdClause {
+		cmd := parent.Command("install-deckhouse", "Install deckhouse and wait for its readiness.")
+		app.DefineSSHFlags(cmd, config.ConnectionConfigParser{})
+		app.DefineConfigFlags(cmd)
+		app.DefineBecomeFlags(cmd)
+		app.DefineKubeFlags(cmd)
+		app.DefineDeckhouseFlags(cmd)
+		app.DefineDeckhouseInstallFlags(cmd)
 
-	cmd.Action(func(c *kingpin.ParseContext) error {
-		var sshClient *ssh.Client
-		if len(app.SSHHosts) != 0 {
-			sshClient = ssh.NewClientFromFlags()
-		}
+		cmd.Action(func(c *kingpin.ParseContext) error {
+			var sshClient *ssh.Client
+			if len(app.SSHHosts) != 0 {
+				sshClient = ssh.NewClientFromFlags()
+			}
 
-		bootstraper := bootstrap.NewClusterBootstrapper(&bootstrap.Params{
-			NodeInterface:    ssh.NewNodeInterfaceWrapper(sshClient),
-			TerraformContext: terraform.NewTerraformContext(),
+			bootstraper := bootstrap.NewClusterBootstrapper(&bootstrap.Params{
+				NodeInterface:    ssh.NewNodeInterfaceWrapper(sshClient),
+				TerraformContext: terraform.NewTerraformContext(),
+			}, logger)
+			return bootstraper.InstallDeckhouse()
 		})
-		return bootstraper.InstallDeckhouse()
-	})
 
-	return cmd
+		return cmd
+	}
 }
 
-func DefineBootstrapExecuteBashibleCommand(parent *kingpin.CmdClause) *kingpin.CmdClause {
-	cmd := parent.Command("execute-bashible-bundle", "Prepare Master node and install Kubernetes.")
-	app.DefineSSHFlags(cmd, config.ConnectionConfigParser{})
-	app.DefineConfigFlags(cmd)
-	app.DefineBecomeFlags(cmd)
-	app.DefineBashibleBundleFlags(cmd)
+func DefineBootstrapExecuteBashibleCommand(logger *unilogger.Logger) func(parent *kingpin.CmdClause) *kingpin.CmdClause {
+	return func(parent *kingpin.CmdClause) *kingpin.CmdClause {
+		cmd := parent.Command("execute-bashible-bundle", "Prepare Master node and install Kubernetes.")
+		app.DefineSSHFlags(cmd, config.ConnectionConfigParser{})
+		app.DefineConfigFlags(cmd)
+		app.DefineBecomeFlags(cmd)
+		app.DefineBashibleBundleFlags(cmd)
 
-	cmd.Action(func(c *kingpin.ParseContext) error {
-		sshClient, err := ssh.NewClientFromFlagsWithHosts()
-		if err != nil {
-			return fmt.Errorf("unable to create ssh-client: %w", err)
-		}
+		cmd.Action(func(c *kingpin.ParseContext) error {
+			sshClient, err := ssh.NewClientFromFlagsWithHosts()
+			if err != nil {
+				return fmt.Errorf("unable to create ssh-client: %w", err)
+			}
 
-		bootstraper := bootstrap.NewClusterBootstrapper(&bootstrap.Params{
-			NodeInterface:    ssh.NewNodeInterfaceWrapper(sshClient),
-			TerraformContext: terraform.NewTerraformContext(),
+			bootstraper := bootstrap.NewClusterBootstrapper(&bootstrap.Params{
+				NodeInterface:    ssh.NewNodeInterfaceWrapper(sshClient),
+				TerraformContext: terraform.NewTerraformContext(),
+			}, logger)
+			return bootstraper.ExecuteBashible()
 		})
-		return bootstraper.ExecuteBashible()
-	})
 
-	return cmd
+		return cmd
+	}
 }
 
-func DefineCreateResourcesCommand(parent *kingpin.CmdClause) *kingpin.CmdClause {
-	cmd := parent.Command("create-resources", "Create resources in Kubernetes cluster.")
-	app.DefineSSHFlags(cmd, config.ConnectionConfigParser{})
-	app.DefineBecomeFlags(cmd)
-	app.DefineConfigsForResourcesPhaseFlags(cmd)
-	app.DefineResourcesFlags(cmd, false)
-	app.DefineKubeFlags(cmd)
+func DefineCreateResourcesCommand(logger *unilogger.Logger) func(parent *kingpin.CmdClause) *kingpin.CmdClause {
+	return func(parent *kingpin.CmdClause) *kingpin.CmdClause {
+		cmd := parent.Command("create-resources", "Create resources in Kubernetes cluster.")
+		app.DefineSSHFlags(cmd, config.ConnectionConfigParser{})
+		app.DefineBecomeFlags(cmd)
+		app.DefineConfigsForResourcesPhaseFlags(cmd)
+		app.DefineResourcesFlags(cmd, false)
+		app.DefineKubeFlags(cmd)
 
-	cmd.Action(func(c *kingpin.ParseContext) error {
-		var sshClient *ssh.Client
-		if len(app.SSHHosts) != 0 {
-			sshClient = ssh.NewClientFromFlags()
-		}
+		cmd.Action(func(c *kingpin.ParseContext) error {
+			var sshClient *ssh.Client
+			if len(app.SSHHosts) != 0 {
+				sshClient = ssh.NewClientFromFlags()
+			}
 
-		bootstraper := bootstrap.NewClusterBootstrapper(&bootstrap.Params{
-			NodeInterface:    ssh.NewNodeInterfaceWrapper(sshClient),
-			TerraformContext: terraform.NewTerraformContext(),
+			bootstraper := bootstrap.NewClusterBootstrapper(&bootstrap.Params{
+				NodeInterface:    ssh.NewNodeInterfaceWrapper(sshClient),
+				TerraformContext: terraform.NewTerraformContext(),
+			}, logger)
+			return bootstraper.CreateResources()
 		})
-		return bootstraper.CreateResources()
-	})
 
-	return cmd
+		return cmd
+	}
 }
 
-func DefineBootstrapAbortCommand(parent *kingpin.CmdClause) *kingpin.CmdClause {
-	cmd := parent.Command("abort", "Delete every node, which was created during bootstrap process.")
-	app.DefineSSHFlags(cmd, config.ConnectionConfigParser{})
-	app.DefineBecomeFlags(cmd)
-	app.DefineConfigFlags(cmd)
-	app.DefineCacheFlags(cmd)
-	app.DefineSanityFlags(cmd)
-	app.DefineAbortFlags(cmd)
+func DefineBootstrapAbortCommand(logger *unilogger.Logger) func(parent *kingpin.CmdClause) *kingpin.CmdClause {
+	return func(parent *kingpin.CmdClause) *kingpin.CmdClause {
+		cmd := parent.Command("abort", "Delete every node, which was created during bootstrap process.")
+		app.DefineSSHFlags(cmd, config.ConnectionConfigParser{})
+		app.DefineBecomeFlags(cmd)
+		app.DefineConfigFlags(cmd)
+		app.DefineCacheFlags(cmd)
+		app.DefineSanityFlags(cmd)
+		app.DefineAbortFlags(cmd)
 
-	cmd.Action(func(c *kingpin.ParseContext) error {
-		sshClient := ssh.NewClientFromFlags()
-		bootstraper := bootstrap.NewClusterBootstrapper(&bootstrap.Params{
-			NodeInterface:    ssh.NewNodeInterfaceWrapper(sshClient),
-			TerraformContext: terraform.NewTerraformContext(),
+		cmd.Action(func(c *kingpin.ParseContext) error {
+			sshClient := ssh.NewClientFromFlags()
+			bootstraper := bootstrap.NewClusterBootstrapper(&bootstrap.Params{
+				NodeInterface:    ssh.NewNodeInterfaceWrapper(sshClient),
+				TerraformContext: terraform.NewTerraformContext(),
+			}, logger)
+			return bootstraper.Abort(app.ForceAbortFromCache)
 		})
-		return bootstraper.Abort(app.ForceAbortFromCache)
-	})
 
-	return cmd
+		return cmd
+	}
 }
 
-func DefineBaseInfrastructureCommand(parent *kingpin.CmdClause) *kingpin.CmdClause {
-	cmd := parent.Command("base-infra", "Create base infrastructure for Cloud Kubernetes cluster.")
-	app.DefineConfigFlags(cmd)
-	app.DefineCacheFlags(cmd)
-	app.DefineDropCacheFlags(cmd)
+func DefineBaseInfrastructureCommand(logger *unilogger.Logger) func(parent *kingpin.CmdClause) *kingpin.CmdClause {
+	return func(parent *kingpin.CmdClause) *kingpin.CmdClause {
+		cmd := parent.Command("base-infra", "Create base infrastructure for Cloud Kubernetes cluster.")
+		app.DefineConfigFlags(cmd)
+		app.DefineCacheFlags(cmd)
+		app.DefineDropCacheFlags(cmd)
 
-	cmd.Action(func(c *kingpin.ParseContext) error {
-		bootstraper := bootstrap.NewClusterBootstrapper(&bootstrap.Params{
-			TerraformContext: terraform.NewTerraformContext(),
+		cmd.Action(func(c *kingpin.ParseContext) error {
+			bootstraper := bootstrap.NewClusterBootstrapper(&bootstrap.Params{
+				TerraformContext: terraform.NewTerraformContext(),
+			}, logger)
+			return bootstraper.BaseInfrastructure()
 		})
-		return bootstraper.BaseInfrastructure()
-	})
 
-	return cmd
+		return cmd
+	}
 }
 
-func DefineExecPostBootstrapScript(parent *kingpin.CmdClause) *kingpin.CmdClause {
-	cmd := parent.Command("exec-post-bootstrap", "Test scp upload and ssh run uploaded script.")
-	app.DefineSSHFlags(cmd, config.ConnectionConfigParser{})
-	app.DefineBecomeFlags(cmd)
-	app.DefinePostBootstrapScriptFlags(cmd)
+func DefineExecPostBootstrapScript(logger *unilogger.Logger) func(parent *kingpin.CmdClause) *kingpin.CmdClause {
+	return func(parent *kingpin.CmdClause) *kingpin.CmdClause {
+		cmd := parent.Command("exec-post-bootstrap", "Test scp upload and ssh run uploaded script.")
+		app.DefineSSHFlags(cmd, config.ConnectionConfigParser{})
+		app.DefineBecomeFlags(cmd)
+		app.DefinePostBootstrapScriptFlags(cmd)
 
-	cmd.Action(func(c *kingpin.ParseContext) error {
-		sshClient, err := ssh.NewClientFromFlagsWithHosts()
-		if err != nil {
-			return fmt.Errorf("unable to create ssh-client: %w", err)
-		}
+		cmd.Action(func(c *kingpin.ParseContext) error {
+			sshClient, err := ssh.NewClientFromFlagsWithHosts()
+			if err != nil {
+				return fmt.Errorf("unable to create ssh-client: %w", err)
+			}
 
-		bootstraper := bootstrap.NewClusterBootstrapper(&bootstrap.Params{
-			NodeInterface:    ssh.NewNodeInterfaceWrapper(sshClient),
-			TerraformContext: terraform.NewTerraformContext(),
+			bootstraper := bootstrap.NewClusterBootstrapper(&bootstrap.Params{
+				NodeInterface:    ssh.NewNodeInterfaceWrapper(sshClient),
+				TerraformContext: terraform.NewTerraformContext(),
+			}, logger)
+			return bootstraper.ExecPostBootstrap()
 		})
-		return bootstraper.ExecPostBootstrap()
-	})
 
-	return cmd
+		return cmd
+	}
 }

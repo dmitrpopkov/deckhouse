@@ -24,8 +24,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/prometheus/prometheus/prompb"
 	log "github.com/sirupsen/logrus"
+	"github.com/prometheus/prometheus/prompb"
 	"go.opentelemetry.io/contrib/exporters/metric/cortex"
 
 	"d8.io/upmeter/pkg/check"

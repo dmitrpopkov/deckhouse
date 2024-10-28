@@ -19,7 +19,7 @@ package deckhouse_release
 import (
 	"runtime/debug"
 
-	"github.com/sirupsen/logrus"
+	"github.com/flant/shell-operator/pkg/unilogger"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
@@ -34,68 +34,68 @@ func newEventFilter() predicate.Predicate {
 }
 
 type logWrapper struct {
-	l *logrus.Entry
+	l *unilogger.Logger
 	p predicate.Predicate
 }
 
 func (w logWrapper) Create(createEvent event.CreateEvent) bool {
-	logEntry := w.l.WithField("event", createEvent)
+	logEntry := w.l.With("event", createEvent)
 	defer w.recover(logEntry)
 
 	result := w.p.Create(createEvent)
 	logEntry.
-		WithField("result", result).
-		Debugln("processed create event")
+		With("result", result).
+		Debug("processed create event")
 
 	return result
 }
 
 func (w logWrapper) Delete(deleteEvent event.DeleteEvent) bool {
-	logEntry := w.l.WithField("event", deleteEvent)
+	logEntry := w.l.With("event", deleteEvent)
 	defer w.recover(logEntry)
 
 	result := w.p.Delete(deleteEvent)
 	logEntry.
-		WithField("result", result).
-		Debugln("processed delete event")
+		With("result", result).
+		Debug("processed delete event")
 
 	return result
 }
 
 func (w logWrapper) Update(updateEvent event.UpdateEvent) bool {
-	logEntry := w.l.WithField("event", updateEvent)
+	logEntry := w.l.With("event", updateEvent)
 	defer w.recover(logEntry)
 
 	result := w.p.Update(updateEvent)
 	logEntry.
-		WithField("result", result).
-		Debugln("processed update event")
+		With("result", result).
+		Debug("processed update event")
 
 	return result
 }
 
 func (w logWrapper) Generic(genericEvent event.GenericEvent) bool {
-	logEntry := w.l.WithField("event", genericEvent)
+	logEntry := w.l.With("event", genericEvent)
 	defer w.recover(logEntry)
 
 	result := w.p.Generic(genericEvent)
 	logEntry.
-		WithField("result", result).
-		Debugln("processed generic event")
+		With("result", result).
+		Debug("processed generic event")
 
 	return result
 }
 
-func (w logWrapper) recover(logEntry *logrus.Entry) {
+func (w logWrapper) recover(logEntry *unilogger.Logger) {
 	r := recover()
 	if r == nil {
 		return
 	}
 
 	logEntry.
-		WithField("panic", r).
-		WithField("stack", debug.Stack()).
-		Errorln("recovered from panic")
+		With("panic", r).
+		With("stack", debug.Stack()).
+		Error("recovered from panic")
 }
 
 type releasePhasePredicate struct{}

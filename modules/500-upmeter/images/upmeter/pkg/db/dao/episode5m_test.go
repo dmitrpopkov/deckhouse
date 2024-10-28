@@ -21,9 +21,9 @@ import (
 	"testing"
 	"time"
 
+	log "github.com/sirupsen/logrus"
 	_ "github.com/mattn/go-sqlite3"
 	. "github.com/onsi/gomega"
-	log "github.com/sirupsen/logrus"
 
 	"d8.io/upmeter/pkg/check"
 	"d8.io/upmeter/pkg/db/migrations"

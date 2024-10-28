@@ -83,21 +83,21 @@ func (c *Controller) Start(ctx context.Context) error {
 
 	// Monitor tracks the exporter configuration in kubernetes. It is important to subscribe (add event callback)
 	// before monitor starts because informers are created during monitor.Start(ctx) call.
-	c.logger.Debugln("subscribing to k8s events")
+	c.logger.Debug("subscribing to k8s events")
 	c.kubeMonitor.Subscribe(&updateHandler{
 		syncers: c.syncers,
 		logger:  c.logger.WithField("who", "updateHandler"),
 		headers: headers,
 	})
 
-	c.logger.Debugln("starting k8s monitor")
+	c.logger.Debug("starting k8s monitor")
 	err := c.kubeMonitor.Start(ctx)
 	if err != nil {
 		return fmt.Errorf("cannot start monitor: %v", err)
 	}
 
 	// ID syncers runs and stops metrics exporters. Here we read configs and add them one by one.
-	c.logger.Debugln("getting k8s CRs list")
+	c.logger.Debug("getting k8s CRs list")
 	rws, err := c.kubeMonitor.List()
 	if err != nil {
 		return fmt.Errorf("cannot get initial list of upmeterremotewrite objects: %v", err)
@@ -114,7 +114,7 @@ func (c *Controller) Start(ctx context.Context) error {
 		}
 	}
 
-	c.logger.Debugln("starting syncers")
+	c.logger.Debug("starting syncers")
 	err = c.syncers.start(ctx)
 	if err != nil {
 		return fmt.Errorf("cannot start syncers: %v", err)

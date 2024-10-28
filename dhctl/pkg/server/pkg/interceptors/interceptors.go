@@ -21,6 +21,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/flant/shell-operator/pkg/unilogger"
 	"github.com/grpc-ecosystem/go-grpc-middleware/v2/interceptors/logging"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -43,13 +44,13 @@ func PanicRecoveryHandler() func(ctx context.Context, p any) error {
 	}
 }
 
-func UnaryLogger(log *slog.Logger) grpc.UnaryServerInterceptor {
+func UnaryLogger(log *unilogger.Logger) grpc.UnaryServerInterceptor {
 	return func(ctx context.Context, req any, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp any, err error) {
 		return handler(logger.ToContext(ctx, log, logger.AttrFromGRPCCtx(ctx)...), req)
 	}
 }
 
-func StreamLogger(log *slog.Logger) grpc.StreamServerInterceptor {
+func StreamLogger(log *unilogger.Logger) grpc.StreamServerInterceptor {
 	return func(srv any, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
 		wss := newStreamContextWrapper(ss)
 		wss.SetContext(logger.ToContext(ss.Context(), log, logger.AttrFromGRPCCtx(ss.Context())...))

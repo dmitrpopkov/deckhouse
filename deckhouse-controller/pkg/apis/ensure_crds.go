@@ -17,7 +17,7 @@ package apis
 import (
 	"context"
 
-	log "github.com/sirupsen/logrus"
+	log "github.com/flant/shell-operator/pkg/unilogger"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 

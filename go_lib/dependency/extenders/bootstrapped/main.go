@@ -21,8 +21,7 @@ import (
 
 	"github.com/flant/addon-operator/pkg/module_manager/scheduler/extenders"
 	scherror "github.com/flant/addon-operator/pkg/module_manager/scheduler/extenders/error"
-	"github.com/flant/addon-operator/pkg/utils/logger"
-	log "github.com/sirupsen/logrus"
+	log "github.com/flant/shell-operator/pkg/unilogger"
 	"k8s.io/utils/ptr"
 )
 
@@ -40,13 +39,14 @@ var _ extenders.Extender = &Extender{}
 
 type Extender struct {
 	modules map[string]bool
-	logger  logger.Logger
+	logger  *log.Logger
 }
 
+// TODO: refactor
 func Instance() *Extender {
 	once.Do(func() {
 		instance = &Extender{
-			logger:  log.WithField("extender", Name),
+			logger:  log.Default().With("extender", Name),
 			modules: make(map[string]bool),
 		}
 	})

@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/acarl005/stripansi"
+	"github.com/flant/shell-operator/pkg/unilogger"
 	"google.golang.org/grpc/metadata"
 )
 
@@ -82,16 +83,16 @@ func AttrFromGRPCCtx(ctx context.Context) []any {
 	return attrs
 }
 
-func ToContext(ctx context.Context, log *slog.Logger, args ...any) context.Context {
+func ToContext(ctx context.Context, log *unilogger.Logger, args ...any) context.Context {
 	return context.WithValue(ctx, loggerCtxKey{}, log.With(args...))
 }
 
-func L(ctx context.Context) *slog.Logger {
+func L(ctx context.Context) *unilogger.Logger {
 	l := ctx.Value(loggerCtxKey{})
 	if l == nil {
-		logger := NewLogger(&slog.LevelVar{}).With(slog.String("UNINITIALIZED", "UNINITIALIZED"))
+		logger := unilogger.NewLogger(unilogger.Options{}).With(slog.String("UNINITIALIZED", "UNINITIALIZED"))
 		return logger
 	}
 
-	return l.(*slog.Logger)
+	return l.(*unilogger.Logger)
 }

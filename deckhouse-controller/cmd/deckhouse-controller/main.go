@@ -26,6 +26,7 @@ import (
 	"github.com/flant/kube-client/klogtologrus"
 	sh_app "github.com/flant/shell-operator/pkg/app"
 	sh_debug "github.com/flant/shell-operator/pkg/debug"
+	"github.com/flant/shell-operator/pkg/unilogger"
 	"gopkg.in/alecthomas/kingpin.v2"
 
 	"github.com/deckhouse/deckhouse/deckhouse-controller/pkg/debug"
@@ -62,6 +63,9 @@ func main() {
 
 	kpApp := kingpin.New(FileName, fmt.Sprintf("%s %s: %s", AppName, DeckhouseVersion, AppDescription))
 
+	logger := unilogger.NewLogger(unilogger.Options{})
+	unilogger.SetDefault(logger)
+
 	// override usage template to reveal additional commands with information about start command
 	kpApp.UsageTemplate(sh_app.OperatorUsageTemplate(FileName))
 
@@ -73,14 +77,14 @@ func main() {
 
 	kpApp.Action(func(_ *kingpin.ParseContext) error {
 		klogtologrus.InitAdapter(sh_app.DebugKubernetesAPI)
-		stdliblogtologrus.InitAdapter()
+		stdliblogtologrus.InitAdapter(logger)
 		return nil
 	})
 
 	// start main loop
 	startCmd := kpApp.
 		Command("start", "Start deckhouse.").
-		Action(start)
+		Action(start(logger))
 
 	ad_app.DefineStartCommandFlags(kpApp, startCmd)
 
@@ -89,10 +93,10 @@ func main() {
 	ad_app.DefineDebugCommands(kpApp)
 
 	// Add more commands to the "module" command.
-	debug.DefineModuleConfigDebugCommands(kpApp)
+	debug.DefineModuleConfigDebugCommands(kpApp, logger)
 
 	// deckhouse-controller helper subcommands
-	helpers.DefineHelperCommands(kpApp)
+	helpers.DefineHelperCommands(kpApp, logger)
 
 	// deckhouse-controller collect-debug-info
 	debug.DefineCollectDebugInfoCommand(kpApp)
@@ -101,7 +105,7 @@ func main() {
 	debug.DefineRequirementsCommands(kpApp)
 
 	// deckhouse-controller registry
-	registry.DefineRegistryCommand(kpApp)
+	registry.DefineRegistryCommand(kpApp, logger)
 
 	// deckhouse-controller edit subcommands
 	editCmd := kpApp.Command("edit", "Change configuration files in Kubernetes cluster conveniently and safely.")

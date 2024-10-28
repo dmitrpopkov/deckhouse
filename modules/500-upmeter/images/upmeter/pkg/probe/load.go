@@ -20,13 +20,12 @@ import (
 	"sort"
 	"time"
 
-	"github.com/sirupsen/logrus"
-
 	"d8.io/upmeter/pkg/check"
 	"d8.io/upmeter/pkg/kubernetes"
 	"d8.io/upmeter/pkg/monitor/node"
 	"d8.io/upmeter/pkg/probe/checker"
 	"d8.io/upmeter/pkg/set"
+	"github.com/sirupsen/logrus"
 )
 
 func NewLoader(

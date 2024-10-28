@@ -18,7 +18,6 @@ import (
 	"bytes"
 	"context"
 	"flag"
-	"io"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -26,9 +25,9 @@ import (
 	"time"
 
 	addonmodules "github.com/flant/addon-operator/pkg/module_manager/models/modules"
+	log "github.com/flant/shell-operator/pkg/unilogger"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	crfake "github.com/google/go-containerregistry/pkg/v1/fake"
-	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
@@ -321,7 +320,7 @@ type: Opaque
 		client:               cl,
 		downloadedModulesDir: d8env.GetDownloadedModulesDir(),
 		dc:                   dependency.NewDependencyContainer(),
-		logger:               log.New(),
+		logger:               log.NewNop(),
 		symlinksDir:          filepath.Join(d8env.GetDownloadedModulesDir(), "modules"),
 		moduleManager:        stubModulesManager{},
 		delayTimer:           time.NewTimer(3 * time.Second),
@@ -430,7 +429,7 @@ func (s stubModulesManager) DisableModuleHooks(_ string) {
 }
 
 func (s stubModulesManager) GetModule(name string) *addonmodules.BasicModule {
-	bm, _ := addonmodules.NewBasicModule(name, "", 900, nil, []byte{}, []byte{})
+	bm, _ := addonmodules.NewBasicModule(name, "", 900, nil, []byte{}, []byte{}, log.NewNop())
 	return bm
 }
 
@@ -458,8 +457,6 @@ func singleDocToManifests(doc []byte) (result []string) {
 }
 
 func Test_validateModule(t *testing.T) {
-	log.SetOutput(io.Discard)
-
 	check := func(name string, failed bool) {
 		t.Helper()
 		t.Run(name, func(t *testing.T) {
@@ -471,6 +468,7 @@ func Test_validateModule(t *testing.T) {
 					Path:   path,
 				},
 				nil,
+				log.NewNop(),
 			)
 
 			if !failed {

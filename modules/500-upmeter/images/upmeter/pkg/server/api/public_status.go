@@ -107,7 +107,7 @@ type PublicStatusHandler struct {
 }
 
 func (h *PublicStatusHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	log.Infoln("PublicStatus", r.RemoteAddr, r.RequestURI)
+	log.Info("PublicStatus", r.RemoteAddr, r.RequestURI)
 
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Access-Control-Allow-Origin", "*")
