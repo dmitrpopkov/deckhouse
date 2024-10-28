@@ -112,6 +112,10 @@ func (c *MasterNodeGroupController) Run() error {
 		}
 	}
 
+	if c.commanderMode {
+		return nil
+	}
+
 	err := c.replaceKubeClient(c.state.State)
 	if err != nil {
 		return fmt.Errorf("failed to replace kube client: %w", err)
@@ -400,7 +404,7 @@ func (c *MasterNodeGroupController) newHookForUpdatePipeline(convergedNode strin
 		}
 	}
 
-	return controlplane.NewHookForUpdatePipeline(c.client, nodesToCheck, c.config.UUID).
+	return controlplane.NewHookForUpdatePipeline(c.client, nodesToCheck, c.config.UUID, c.commanderMode).
 		WithSourceCommandName("converge").
 		WithNodeToConverge(convergedNode).
 		WithConfirm(confirm)
