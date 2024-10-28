@@ -113,13 +113,13 @@ spec:
     rootNamespace: d8-{{ $.Chart.Name }}
     trustDomain: {{ $.Values.global.discovery.clusterDomain | quote }}
     accessLogFile: /dev/stdout
-    
+
     # The rules below exclude upmeter-related namespaces from istiod's point of view.
     # So, upmeter's events used to affect the traffic between control-plane and data-plane will be reduced.
     discoverySelectors:
     - matchExpressions:
       - {key: "heritage", operator: NotIn, values: [upmeter]}
-      - {key: "module", operator: NotIn, values: [upmeter]}
+      - {key: "upmeter-group", operator: NotIn, values: [control-plane]}
 
     outboundTrafficPolicy:
   {{- $outboundTrafficPolicyModeDict := dict "AllowAny" "ALLOW_ANY" "RegistryOnly" "REGISTRY_ONLY" }}
