@@ -26,23 +26,26 @@ import (
 // safely (in terms of addon-operator internals) retrieve information about modules.
 
 var (
-	serviceInstance     *ConfigService
-	serviceInstanceLock sync.Mutex
+	serviceInstance *ConfigService
 )
 
-func InitService(mm ModuleManager) {
-	serviceInstanceLock.Lock()
-	defer serviceInstanceLock.Unlock()
+type ConfigService struct {
+	moduleManager   ModuleManager
+	lock            sync.Mutex
+	possibleNames   set.Set
+	configValidator *ConfigValidator
+	statusReporter  *StatusReporter
+}
 
+func InitService(mm ModuleManager) {
 	possibleNames := set.New()
 	possibleNames.Add("global")
 
 	serviceInstance = &ConfigService{
-		moduleManager:        mm,
-		possibleNames:        possibleNames,
-		configValidator:      NewConfigValidator(mm),
-		statusReporter:       NewModuleInfo(mm, possibleNames),
-		moduleNamesToSources: make(map[string]string),
+		moduleManager:   mm,
+		possibleNames:   possibleNames,
+		configValidator: NewConfigValidator(mm),
+		statusReporter:  NewModuleInfo(mm, possibleNames),
 	}
 }
 
@@ -57,54 +60,22 @@ func Service() *ConfigService {
 	return serviceInstance
 }
 
-type ConfigService struct {
-	moduleManager   ModuleManager
-	possibleNames   set.Set
-	configValidator *ConfigValidator
-	statusReporter  *StatusReporter
-
-	moduleNamesToSourcesMu sync.RWMutex
-	moduleNamesToSources   map[string]string
+func (s *ConfigService) AddPossibleName(name string) {
+	s.lock.Lock()
+	s.possibleNames.Add(name)
+	s.lock.Unlock()
 }
 
-func (srv *ConfigService) PossibleNames() set.Set {
-	return srv.possibleNames
+func (s *ConfigService) PossibleNames() set.Set {
+	s.lock.Lock()
+	defer s.lock.Unlock()
+	return s.possibleNames
 }
 
-func (srv *ConfigService) ConfigValidator() *ConfigValidator {
-	return srv.configValidator
+func (s *ConfigService) ConfigValidator() *ConfigValidator {
+	return s.configValidator
 }
 
-func (srv *ConfigService) StatusReporter() *StatusReporter {
-	return srv.statusReporter
-}
-
-func (srv *ConfigService) SetModuleNameToSources(allModuleNamesToSources map[string]string) {
-	srv.moduleNamesToSourcesMu.Lock()
-	srv.moduleNamesToSources = allModuleNamesToSources
-	srv.moduleNamesToSourcesMu.Unlock()
-}
-
-func (srv *ConfigService) AddModuleNameToSource(moduleName, moduleSource string) {
-	srv.moduleNamesToSourcesMu.Lock()
-	srv.moduleNamesToSources[moduleName] = moduleSource
-	srv.moduleNamesToSourcesMu.Unlock()
-}
-
-func (srv *ConfigService) ModuleToSourcesNames() map[string]string {
-	srv.moduleNamesToSourcesMu.RLock()
-	defer srv.moduleNamesToSourcesMu.RUnlock()
-
-	res := make(map[string]string)
-	for module, repo := range srv.moduleNamesToSources {
-		res[module] = repo
-	}
-
-	return res
-}
-
-func (srv *ConfigService) AddPossibleName(name string) {
-	serviceInstanceLock.Lock()
-	srv.possibleNames.Add(name)
-	serviceInstanceLock.Unlock()
+func (s *ConfigService) StatusReporter() *StatusReporter {
+	return s.statusReporter
 }

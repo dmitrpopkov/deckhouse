@@ -43,7 +43,6 @@ import (
 	"github.com/deckhouse/deckhouse/deckhouse-controller/pkg/controller"
 	debugserver "github.com/deckhouse/deckhouse/deckhouse-controller/pkg/debug-server"
 	d8config "github.com/deckhouse/deckhouse/go_lib/deckhouse-config"
-	d8env "github.com/deckhouse/deckhouse/go_lib/deckhouse-config/env"
 )
 
 const (
@@ -69,8 +68,7 @@ func start(_ *kingpin.ParseContext) error {
 		return nil
 	}
 
-	err := run(ctx, operator)
-	if err != nil {
+	if err := run(ctx, operator); err != nil {
 		log.Error(err)
 		os.Exit(1)
 	}
@@ -143,8 +141,7 @@ func runHAMode(ctx context.Context, operator *addon_operator.AddonOperator) {
 	go func() {
 		<-ctx.Done()
 		log.Info("Context canceled received")
-		err := syscall.Kill(1, syscall.SIGUSR2)
-		if err != nil {
+		if err = syscall.Kill(1, syscall.SIGUSR2); err != nil {
 			log.Infof("Couldn't shutdown deckhouse: %s\n", err)
 			os.Exit(1)
 		}
@@ -160,20 +157,18 @@ func run(ctx context.Context, operator *addon_operator.AddonOperator) error {
 	}
 
 	// we have to lock the controller run if dhctl lock configmap exists
-	err = lockOnBootstrap(ctx, operator.KubeClient())
-	if err != nil {
+	if err = lockOnBootstrap(ctx, operator.KubeClient()); err != nil {
 		return err
 	}
 
-	deckhouseConfigC := make(chan utils.Values, 1)
+	deckhouseConfigCh := make(chan utils.Values, 1)
 
-	kubeConfigBackend := backend.New(operator.KubeClient().RestConfig(), deckhouseConfigC, log.StandardLogger().WithField("KubeConfigManagerBackend", "ModuleConfig"))
-	kubeConfigChannel := kubeConfigBackend.GetEventsChannel()
+	kubeConfigBackend := backend.New(operator.KubeClient().RestConfig(), deckhouseConfigCh, log.StandardLogger().WithField("KubeConfigManagerBackend", "ModuleConfig"))
+	kubeConfigCh := kubeConfigBackend.GetEventsChannel()
 
 	operator.SetupKubeConfigManager(kubeConfigBackend)
 
-	err = operator.Setup()
-	if err != nil {
+	if err = operator.Setup(); err != nil {
 		return err
 	}
 
@@ -184,26 +179,17 @@ func run(ctx context.Context, operator *addon_operator.AddonOperator) error {
 
 	validation.RegisterAdmissionHandlers(operator, dController, operator.MetricStorage)
 
-	operator.ModuleManager.SetModuleEventsChannel(kubeConfigChannel)
+	operator.ModuleManager.SetModuleEventsChannel(kubeConfigCh)
 
-	operator.ModuleManager.SetModuleLoader(dController)
-
-	// Init deckhouse-config service with ModuleManager instance.
+	// init deckhouse-config service with ModuleManager instance.
 	d8config.InitService(operator.ModuleManager)
 
-	// Runs preflight checks first (restore the modules' file system)
-	if d8env.GetDownloadedModulesDir() != "" {
-		dController.StartPluggableModulesControllers(ctx)
-	}
-
-	// Loads deckhouse modules from the fs and Starts main event lop
-	err = dController.DiscoverDeckhouseModules(ctx, operator.ModuleManager.GetModuleEventsChannel(), deckhouseConfigC)
-	if err != nil {
+	// load module from FS, start pluggable controllers and run deckhouse config event loop
+	if err = dController.Start(ctx, deckhouseConfigCh); err != nil {
 		return err
 	}
 
-	err = operator.Start(ctx)
-	if err != nil {
+	if err = operator.Start(ctx); err != nil {
 		return err
 	}
 

@@ -77,6 +77,7 @@ type ModuleSourceStatus struct {
 type AvailableModule struct {
 	Name       string `json:"name"`
 	Policy     string `json:"policy,omitempty"`
+	Checksum   string `json:"checksum,omitempty"`
 	Overridden bool   `json:"overridden,omitempty"`
 }
 
