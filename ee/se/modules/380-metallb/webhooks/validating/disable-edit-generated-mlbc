@@ -46,9 +46,9 @@ function forbid() {
 
 function __main__() {
   mc_version=$(context::jq -r '.snapshots.metallb_mc[]?.filterResult.version')
-  mlbc_name=$(context::jq -r '.review.request.name')
-  if [ "$mc_version" == "1" ] && [ "$mlbc_name" == "l2-default" ]; then
-    forbid "Editing of the resource MetalLoadBalancerClass with name 'l2-default' is prohibited until the Metallb module version is 1."
+  mlbc_label=$(context::jq -r '.review.request.object.metadata.labels["auto-generated-by"]')
+  if [ "$mc_version" == "1" ] && [ "$mlbc_label" == "migration-hook" ]; then
+    forbid "Editing of the resource MetalLoadBalancerClass with label 'auto-generated-by=migration-hook' is prohibited until the Metallb module version is 1."
     exit 0
   fi
 
