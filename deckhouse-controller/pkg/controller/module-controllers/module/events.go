@@ -28,31 +28,32 @@ func (r *reconciler) runModuleEventLoop(ctx context.Context) error {
 	for event := range r.moduleManager.GetModuleEventsChannel() {
 		switch event.EventType {
 		case events.ModuleRegistered:
+			// TODO(ipaqsa) why?
 			// add module name as a possible name for validation module config webhook
 			d8config.Service().AddPossibleName(event.ModuleName)
 			continue
 		case events.ModuleConfigChanged:
 			if err := r.refreshModuleConfigAndModule(ctx, event.ModuleName); err != nil {
-				// add logs
+				r.log.Error(err, "failed to handle ModuleConfigChanged event: failed to refresh module config and module", "module", event.ModuleName)
 			}
 			continue
 		case events.ModuleEnabled:
 			if err := r.handleEnabledDisabledEvent(ctx, event.ModuleName, true); err != nil {
-				// add logs
+				r.log.Error(err, "failed to handle ModuleEnabled event: failed to enable module", "module", event.ModuleName)
 			}
 			continue
 		case events.ModuleDisabled:
 			if err := r.handleEnabledDisabledEvent(ctx, event.ModuleName, false); err != nil {
-				// add logs
+				r.log.Error(err, "failed to handle ModuleDisabled event: failed to disable module", "module", event.ModuleName)
 			}
 			continue
 		case events.ModuleStateChanged:
 			if err := r.refreshModuleByModuleConfig(ctx, event.ModuleName); err != nil {
-				// add logs
+				r.log.Error(err, "failed to handle ModuleStateChanged event: failed to refresh module", "module", event.ModuleName)
 			}
 			continue
 		default:
-			// add logs
+			r.log.Warn("unknown module event type", "type", event.EventType, "module", event.ModuleName)
 			continue
 		}
 	}

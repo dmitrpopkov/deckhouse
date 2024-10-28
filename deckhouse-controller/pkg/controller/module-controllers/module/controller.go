@@ -17,6 +17,7 @@ package module
 import (
 	"context"
 	"fmt"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"strconv"
 	"sync"
 	"time"
@@ -26,7 +27,9 @@ import (
 	d8config "github.com/deckhouse/deckhouse/go_lib/deckhouse-config"
 	"github.com/deckhouse/deckhouse/go_lib/deckhouse-config/conversion"
 	"github.com/flant/addon-operator/pkg/module_manager/models/modules/events"
+	"github.com/flant/addon-operator/pkg/utils/logger"
 	metricstorage "github.com/flant/shell-operator/pkg/metric_storage"
+	log "github.com/sirupsen/logrus"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
@@ -50,6 +53,7 @@ func RegisterController(runtimeManager manager.Manager, loader *moduleloader.Loa
 	r := &reconciler{
 		init:          sync.WaitGroup{},
 		client:        runtimeManager.GetClient(),
+		log:           log.WithField("component", "ModuleController"),
 		metricStorage: ms,
 		moduleManager: mm,
 		moduleLoader:  loader,
@@ -69,12 +73,14 @@ func RegisterController(runtimeManager manager.Manager, loader *moduleloader.Loa
 
 	return ctrl.NewControllerManagedBy(runtimeManager).
 		For(&v1alpha1.Module{}).
+		WithEventFilter(predicate.GenerationChangedPredicate{}).
 		Complete(moduleController)
 }
 
 type reconciler struct {
 	init          sync.WaitGroup
 	client        client.Client
+	log           logger.Logger
 	moduleManager moduleManager
 	moduleLoader  *moduleloader.Loader
 	metricStorage *metricstorage.MetricStorage
@@ -128,7 +134,7 @@ func (r *reconciler) syncModuleConfigs(ctx context.Context) error {
 
 		for _, config := range configs.Items {
 			if err := r.refreshModuleConfigAndModule(ctx, config.Name); err != nil {
-				//log.Errorf("Error occurred during the module config %q status update: %s", config.Name, err)
+				r.log.Errorf("failed to refresh the '%s' module config on sync: %s", config.Name, err)
 			}
 		}
 		return nil
@@ -146,9 +152,6 @@ func (r *reconciler) refreshModuleConfigAndModule(ctx context.Context, configNam
 				if !apierrors.IsNotFound(err) {
 					return err
 				}
-			}
-
-			if config == nil {
 				return nil
 			}
 
@@ -204,7 +207,7 @@ func (r *reconciler) refreshModuleByModuleConfig(ctx context.Context, moduleName
 		module.Status.Message = newModuleStatus.Message
 		module.Status.HooksState = newModuleStatus.HooksState
 
-		//log.Debugf("Update /status for module/%s: status '%s' to '%s', message '%s' to '%s'", moduleName, module.Status.Status, newModuleStatus.Status, module.Status.Message, newModuleStatus.Message)
+		//r.log.Debugf("update status for the '%s' module: status '%s' to '%s', message '%s' to '%s'", moduleName, module.Status.Status, newModuleStatus.Status, module.Status.Message, newModuleStatus.Message)
 
 		if err := r.client.Status().Update(ctx, module); err != nil {
 			return err

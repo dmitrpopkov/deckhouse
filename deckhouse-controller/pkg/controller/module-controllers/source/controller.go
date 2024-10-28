@@ -77,9 +77,9 @@ func RegisterController(runtimeManager manager.Manager, dc dependency.Container,
 	r := &reconciler{
 		client:               runtimeManager.GetClient(),
 		log:                  log.WithField("component", "ModuleSourceController"),
-		dependencyContainer:  dc,
 		downloadedModulesDir: d8env.GetDownloadedModulesDir(),
 		embeddedPolicy:       embeddedPolicy,
+		dependencyContainer:  dc,
 	}
 
 	preflightCountDown.Add(1)
@@ -355,37 +355,38 @@ func (r *reconciler) cleanSourceInModule(ctx context.Context, sourceName, module
 	return nil
 }
 
-// releasePolicy checks if any update policy matches the module release and if it's so - returns the policy and its release channel.
-// if several policies match the module release labels, conflict=true is returned
-// if no policy matches the module release, embeddedPolicy is returned
+// releasePolicy checks if any update policy matches the module source and if it's so - returns the policy.
+// if several policies match the module source labels, return error
+// if no policy matches the module source, embeddedPolicy is returned
 func (r *reconciler) releasePolicy(sourceName, moduleName string, policies []v1alpha1.ModuleUpdatePolicy) (*v1alpha1.ModuleUpdatePolicy, error) {
 	var releaseLabelsSet labels.Set = map[string]string{"module": moduleName, "source": sourceName}
-	matchedPolicy := new(v1alpha1.ModuleUpdatePolicy)
-
+	var matchedPolicy *v1alpha1.ModuleUpdatePolicy
 	for _, policy := range policies {
-		if policy.Spec.ModuleReleaseSelector.LabelSelector != nil {
-			selector, err := metav1.LabelSelectorAsSelector(policy.Spec.ModuleReleaseSelector.LabelSelector)
-			if err != nil {
-				return nil, err
-			}
-			selectorSourceName, sourceLabelExists := selector.RequiresExactMatch("source")
-			if sourceLabelExists && selectorSourceName != sourceName {
-				// the 'source' label is set, but does not match the given ModuleSource
-				continue
-			}
+		if policy.Spec.ModuleReleaseSelector.LabelSelector == nil {
+			continue
+		}
 
-			if selector.Matches(releaseLabelsSet) {
-				// ModuleUpdatePolicy matches ModuleSource and specified Module
-				if matchedPolicy != nil {
-					return nil, fmt.Errorf("more than one update policy matches the module: %s and %s", matchedPolicy.Name, policy.Name)
-				}
-				matchedPolicy = &policy
+		selector, err := metav1.LabelSelectorAsSelector(policy.Spec.ModuleReleaseSelector.LabelSelector)
+		if err != nil {
+			return nil, err
+		}
+
+		if selectorSourceName, exist := selector.RequiresExactMatch("source"); exist && selectorSourceName != sourceName {
+			// the 'source' label is set, but does not match the given ModuleSource
+			continue
+		}
+
+		if selector.Matches(releaseLabelsSet) {
+			// ModuleUpdatePolicy matches ModuleSource and specified Module
+			if matchedPolicy != nil {
+				return nil, fmt.Errorf("more than one update policy matches the module: %s and %s", matchedPolicy.Name, policy.Name)
 			}
+			matchedPolicy = &policy
 		}
 	}
 
 	if matchedPolicy == nil {
-		r.log.Infof("ModuleUpdatePolicy for the '%q' module source, and the '%q' module not found, using Embedded policy: %+v", sourceName, moduleName, *r.embeddedPolicy.Get())
+		r.log.Infof("no module update policy for the '%q' module source, and the '%q' module, deckhouse policy will be used: %+v", sourceName, moduleName, *r.embeddedPolicy.Get())
 		return &v1alpha1.ModuleUpdatePolicy{
 			TypeMeta: metav1.TypeMeta{
 				Kind:       v1alpha1.ModuleUpdatePolicyGVK.Kind,
@@ -496,7 +497,7 @@ func (r *reconciler) ensureModule(ctx context.Context, sourceName, releaseChanne
 				AvailableSources: []string{sourceName},
 			},
 			Status: v1alpha1.ModuleStatus{
-				Phase: string(v1alpha1.ModulePhaseNotInstalled),
+				Phase: v1alpha1.ModulePhaseNotInstalled,
 				Conditions: []v1alpha1.ModuleCondition{
 					{
 						Type:               v1alpha1.ModuleConditionEnabled,
