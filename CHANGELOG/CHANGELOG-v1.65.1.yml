@@ -1,0 +1,9 @@
+candi:
+  fixes:
+    - summary: Check for transparent hugepages before trying to disable them in sysctl-tuner
+      pull_request: https://github.com/deckhouse/deckhouse/pull/10299
+deckhouse-tools:
+  fixes:
+    - summary: Rebuild d8-cli images when used version changes
+      pull_request: https://github.com/deckhouse/deckhouse/pull/10267
+
